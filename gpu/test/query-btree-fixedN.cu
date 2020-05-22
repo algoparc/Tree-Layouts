@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]){
     if (argc != 4) {
-        fprintf(stderr,"Usage: %s <number of elements> <b value> <number of CPU threads>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <number of elements> <b value> <number of CPU threads>\n", argv[0]);
         exit(1);
     }
 

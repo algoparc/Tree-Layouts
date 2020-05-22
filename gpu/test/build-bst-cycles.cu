@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr,"Usage: %s <integer d such that n = 2^d - 1> <number of CPU threads>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <integer d such that n = 2^d - 1> <number of CPU threads>\n", argv[0]);
         exit(1);
     }
 

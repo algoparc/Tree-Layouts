@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr,"Usage: %s <integer d such that n = 2^d - 1> <number of CPU threads>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <integer d such that n = 2^d - 1> <number of CPU threads>\n", argv[0]);
         exit(1);
     }
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     //Construction
     initSortedList<uint64_t>(A, n);
     cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-    timePermutevEB<uint64_t>(A, dev_A, n);
+    timePermutevEB<uint64_t>(dev_A, n);
     cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
     //Build table used in querying

@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
         //Construction
         initSortedList<uint64_t>(A, n);
         cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-        timePermutevEB<uint64_t>(A, dev_A, n);
+        timePermutevEB<uint64_t>(dev_A, n);
         cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
         //Build table used in querying
