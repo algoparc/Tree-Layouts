@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
         //Construction
         initSortedList<uint64_t>(A, n);
         cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-        timePermuteBST<uint64_t>(dev_A, n, d, p);
+        timePermuteBST<uint64_t>(dev_A, n);
         cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
         //Querying
