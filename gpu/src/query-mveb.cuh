@@ -54,13 +54,13 @@ __device__ uint64_t searchvEB(TYPE *A, vEB_table *table, uint64_t n, uint32_t d,
 //Performs all of the queries given in the array queries
 //index in A of the queried items are saved in the answers array
 template<typename TYPE>
-__global__ void searchAll(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYPE *queries, uint64_t *answers, uint64_t numQueries) {
+__global__ void searchAll(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYPE *queries, uint64_t numQueries) {
     int tid = threadIdx.x + blockIdx.x*blockDim.x;
     int num_threads = gridDim.x*blockDim.x;
     extern __shared__ uint64_t pos[];
 
     for (uint64_t i = tid; i < numQueries; i += num_threads) {
-        answers[i] = searchvEB<TYPE>(A, table, n, d, queries[i], pos);
+        queries[i] = searchvEB<TYPE>(A, table, n, d, queries[i], pos);
     }
 }
 
@@ -76,9 +76,9 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     TYPE *dev_queries;
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
+    #ifdef DEBUG
     uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
-    uint64_t *dev_answers;
-    cudaMalloc(&dev_answers, numQueries * sizeof(uint64_t));
+    #endif
 
     cudaMemcpy(dev_A, A, n * sizeof(TYPE), cudaMemcpyHostToDevice);                             //transfer A to GPU
     cudaMemcpy(dev_queries, queries, numQueries * sizeof(TYPE), cudaMemcpyHostToDevice);        //transfer queries to GPU
@@ -87,7 +87,7 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     cudaGetDeviceProperties(&prop, 0);
     if ((d * sizeof(uint64_t) * THREADS) <= prop.sharedMemPerBlock) {
         cudaEventRecord(start);
-        searchAll<<<BLOCKS, THREADS, (size_t)(d * sizeof(uint64_t) * THREADS)>>>(dev_A, dev_table, n, d, dev_queries, dev_answers, numQueries);
+        searchAll<<<BLOCKS, THREADS, (size_t)(d * sizeof(uint64_t) * THREADS)>>>(dev_A, dev_table, n, d, dev_queries, numQueries);
         #ifdef DEBUG
 	    cudaEventRecord(end);
 	    cudaError_t cudaerr = cudaEventSynchronize(end);
@@ -108,7 +108,7 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
         }
 
         cudaEventRecord(start);
-        searchAll<<<blocks, threads, (size_t)(d * sizeof(uint64_t) * threads)>>>(dev_A, dev_table, n, d, dev_queries, dev_answers, numQueries);
+        searchAll<<<blocks, threads, (size_t)(d * sizeof(uint64_t) * threads)>>>(dev_A, dev_table, n, d, dev_queries, numQueries);
         #ifdef DEBUG
 	    cudaEventRecord(end);
 	    cudaError_t cudaerr = cudaEventSynchronize(end);
@@ -124,9 +124,8 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     float ms;
     cudaEventElapsedTime(&ms, start, end);
 
-    cudaMemcpy(answers, dev_answers, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
-
     #ifdef DEBUG
+    cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i] || answers[i] == n) {
@@ -136,12 +135,11 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     }
     if (correct == false) printf("Searches failed!\n");
     else printf("Searches succeeded!\n");
+    free(answers);
     #endif
 
     free(queries);
-    free(answers);
     cudaFree(dev_queries);
-    cudaFree(dev_answers);
 
     return ms;
 }

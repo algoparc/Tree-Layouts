@@ -29,7 +29,7 @@ void permutevEB_balanced_grid(TYPE *dev_A, uint64_t n, uint64_t m, uint32_t d, u
 
     unshuffle_grid_phaseTwo<TYPE><<<blocks, THREADS>>>(dev_A, n, k+1, m, 2);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("unshuffle_grid_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -38,7 +38,7 @@ void permutevEB_balanced_grid(TYPE *dev_A, uint64_t n, uint64_t m, uint32_t d, u
     //Shuffle_dk on leaves in each partition
     shuffle_dk_skip_grid_phaseOne<TYPE><<<blocks, THREADS>>>(dev_A, n, k, m, k);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_skip_grid_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -46,7 +46,7 @@ void permutevEB_balanced_grid(TYPE *dev_A, uint64_t n, uint64_t m, uint32_t d, u
 
     shuffle_dk_skip_grid_phaseTwo<TYPE><<<blocks, THREADS>>>(dev_A, n, k, m, k);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_skip_grid_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -276,7 +276,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         shuffle_dk_phaseOne<TYPE><<<blocks, threads>>>(dev_A - 1, l+1, n+1);
         #ifdef DEBUG
-	    cudaError_t cudaerr = cudaDeviceSynchronize();
+	    cudaerr = cudaDeviceSynchronize();
 	    if (cudaerr != cudaSuccess) {
 	        printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
 	    }
@@ -293,7 +293,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 	    #endif
         unshuffle_phaseTwo<TYPE><<<blocks, threads>>>(dev_A, l+1, n, h+1);
         #ifdef DEBUG
-	    cudaError_t cudaerr = cudaDeviceSynchronize();
+	    cudaerr = cudaDeviceSynchronize();
 	    if (cudaerr != cudaSuccess) {
 	        printf("unshuffle_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
 	    }
@@ -308,7 +308,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
     #endif
     shuffle_dk_phaseTwo<TYPE><<<blocks, threads>>>(&dev_A[r], l, n-r);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }

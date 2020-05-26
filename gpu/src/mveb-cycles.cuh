@@ -115,7 +115,7 @@ void permutevEB_balanced(TYPE *dev_A, uint64_t n, uint64_t m, uint32_t d) {
 
             equidistant_gather_partitions_phaseTwo<TYPE><<<blocks, THREADS>>>(dev_A, n, m, k, k);
             #ifdef DEBUG
-            cudaError_t cudaerr = cudaDeviceSynchronize();
+            cudaerr = cudaDeviceSynchronize();
             if (cudaerr != cudaSuccess) {
                 printf("equidistant_gather_partitions_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
             }
@@ -245,7 +245,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         equidistant_gather_phaseTwo<TYPE><<<blocks, threads>>>(dev_A, r, l);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -264,7 +264,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         equidistant_gather_phaseTwo<TYPE><<<blocks, threads>>>(dev_A, l, l);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -272,7 +272,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         equidistant_gather_phaseOne<TYPE><<<blocks, threads>>>(&dev_A[n/2 + 1], l, l);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -280,7 +280,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         equidistant_gather_phaseTwo<TYPE><<<blocks, threads>>>(&dev_A[n/2 + 1], l, l);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -288,7 +288,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         shift_right_phaseOne<TYPE><<<blocks, threads>>>(&dev_A[l], (l+1)*(l+1), l+1);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -296,7 +296,7 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
         shift_right_phaseTwo<TYPE><<<blocks, threads>>>(&dev_A[l], (l+1)*(l+1), l+1);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }

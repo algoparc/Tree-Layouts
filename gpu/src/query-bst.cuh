@@ -28,11 +28,11 @@ __device__ uint64_t searchBST(TYPE *A, uint64_t n, TYPE query) {
 //Performs all of the queries given in the array queries
 //index in A of the queried items are saved in the answers array
 template<typename TYPE>
-__global__ void searchAll(TYPE *A, uint64_t n, TYPE *queries, uint64_t *answers, uint64_t numQueries) {
+__global__ void searchAll(TYPE *A, uint64_t n, TYPE *queries, uint64_t numQueries) {
     int tid = threadIdx.x + blockIdx.x * THREADS;
 
     for (uint64_t i = tid; i < numQueries; i += BLOCKS*THREADS) {
-        answers[i] = searchBST<TYPE>(A, n, queries[i]);
+        queries[i] = searchBST<TYPE>(A, n, queries[i]);
     }
 }
 
@@ -47,16 +47,16 @@ float timeQueryBST(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t numQueries) {
     TYPE *dev_queries;
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
+    #ifdef DEBUG
     uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
-    uint64_t *dev_answers;
-    cudaMalloc(&dev_answers, numQueries * sizeof(uint64_t));
+    #endif
 
     cudaMemcpy(dev_A, A, n * sizeof(TYPE), cudaMemcpyHostToDevice);                             //transfer A to GPU
     cudaMemcpy(dev_queries, queries, numQueries * sizeof(TYPE), cudaMemcpyHostToDevice);        //transfer queries to GPU
 
     cudaEventRecord(start);
     
-    searchAll<TYPE><<<BLOCKS, THREADS>>>(dev_A, n, dev_queries, dev_answers, numQueries);
+    searchAll<TYPE><<<BLOCKS, THREADS>>>(dev_A, n, dev_queries, numQueries);
     #ifdef DEBUG
     cudaEventRecord(end);
     cudaError_t cudaerr = cudaEventSynchronize(end);
@@ -71,9 +71,9 @@ float timeQueryBST(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t numQueries) {
     float ms;
     cudaEventElapsedTime(&ms, start, end);
 
-    cudaMemcpy(answers, dev_answers, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
-
     #ifdef DEBUG
+    cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
+    
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i]) {
@@ -83,12 +83,11 @@ float timeQueryBST(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t numQueries) {
     }
     if (correct == false) printf("Searches failed!\n");
     else printf("Searches succeeded!\n");
+    free(answers);
     #endif
 
     free(queries);
-    free(answers);
     cudaFree(dev_queries);
-    cudaFree(dev_answers);
 
     return ms;
 }

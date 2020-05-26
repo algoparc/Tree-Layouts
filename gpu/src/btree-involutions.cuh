@@ -25,7 +25,7 @@ void permute(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t d) {
 
         unshuffle_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(dev_A, b+1, n, d);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("unshuffle_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -33,7 +33,7 @@ void permute(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t d) {
 
         shuffle_dk_phaseOne<TYPE><<<BLOCKS, THREADS>>>(&dev_A[n/(b+1)], b, pow(b+1, d-1) * b);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -41,7 +41,7 @@ void permute(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t d) {
 
         shuffle_dk_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(&dev_A[n/(b+1)], b, pow(b+1, d-1) * b);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -71,7 +71,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shuffle_dk_phaseOne<TYPE><<<BLOCKS, THREADS>>>(dev_A, b+1, l + i);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -79,7 +79,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shift_right_phaseOne<TYPE><<<BLOCKS, THREADS>>>(dev_A, l + i, i);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -87,7 +87,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shift_right_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(dev_A, l + i, i);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -95,7 +95,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shuffle_dk_phaseOne<TYPE><<<BLOCKS, THREADS>>>(&dev_A[i], b, l);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -103,7 +103,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shuffle_dk_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(&dev_A[i], b, l);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -111,7 +111,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shift_right_phaseOne<TYPE><<<BLOCKS, THREADS>>>(&dev_A[i], numLeaves + numInternals - i, numInternals - i);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -119,7 +119,7 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
 
     shift_right_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(&dev_A[i], numLeaves + numInternals - i, numInternals - i);
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }

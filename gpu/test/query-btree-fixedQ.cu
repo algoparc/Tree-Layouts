@@ -18,7 +18,7 @@ int main(int argc, char *argv[]){
 
     double time[ITERS];
 
-    for (uint32_t d = 22; d <= 32; ++d) {
+    for (uint32_t d = 22; d <= 30; ++d) {
         uint64_t n = pow(2, d) - 1;
         #ifdef DEBUG
         printf("n = 2^%d - 1 = %lu; b = %lu\n", d, n, b);
