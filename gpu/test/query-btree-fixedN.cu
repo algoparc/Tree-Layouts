@@ -34,7 +34,7 @@ int main(int argc, char *argv[]){
         for (uint32_t i = 0; i < ITERS; ++i) {
             time[i] = timeQueryBtree<uint64_t>(A, dev_A, n, b, q);
         }
-        printTimings(q, time);
+        printQueryTimings(n, q, time);
 
         if (q == 1000000) {
             q = 10000000;
