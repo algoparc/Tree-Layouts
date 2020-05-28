@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ *    http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef QUERY_VEB_CUH
 #define QUERY_VEB_CUH
 
@@ -24,7 +40,7 @@ void buildTable(vEB_table *table, uint64_t n, uint32_t d, uint32_t root_depth);
 //Returns index of query'd element (if found)
 //Otherwise, returns n (element not found)
 template<typename TYPE>
-__forceinline__ __device__ uint64_t searchvEB(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYPE query, uint64_t *pos) {
+__device__ uint64_t searchvEB(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYPE query, uint64_t *pos) {
     int tid = threadIdx.x;      //thread id within the thread block
     TYPE current;
 
