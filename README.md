@@ -60,12 +60,14 @@ The parameters of the above functions are defined as follows:
 * `dev_table` is a pointer to the start of the data structure used to query the van Emde Boas tree layout and Modified van Emde Boas tree layout residing in CPU RAM space
 * `d` is the number of levels in the corresponding search tree
 
-To initialize the table used in the van Emde Boas tree layout and Modified van Emde Boas tree layouts, execute the following code:
+To initialize the table used to query the van Emde Boas tree layout and Modified van Emde Boas tree layouts, execute the following code:
 ```
 vEB_table *table = (vEB_table *)calloc(d, sizeof(vEB_table));
 buildTable(table, n, d, 0);
 ```
-(To build the table for the modified van Emde Boas tree layout, replace `vEB` with `mvEB`.)
+To build the table for the modified van Emde Boas tree layout, replace `vEB` with `mvEB`.
+For more information about this data structure, see the following paper: 
+G.S. Brodal, R. Fagerberg, and R. Jacob. "Cache oblivious search trees via binary trees of small height". In *Proceedings of the 13th ACM-SIAM Symposium on Discrete Algorithms*, pages 39-48, 2002.
 
 To change the number of GPU threads launched and its organization into thread-blocks, change the parameters defined in `gpu/src/params.cuh`.
 * `BLOCKS` is the number of thread-blocks to launch
