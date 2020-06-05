@@ -48,11 +48,6 @@ int main(int argc, char **argv) {
         //Build table used in querying
         mvEB_table *table = (mvEB_table *)calloc(d, sizeof(mvEB_table));
         buildTable(table, n, d, 0);
-        printf("\n");
-        for (int i = 0; i < d; ++i) {
-            printf("i = %d; L = %lu; R = %lu; D = %u\n", i, table[i].L, table[i].R, table[i].D);
-        }
-        printf("\n");
 
         //Querying
         for (uint32_t i = 0; i < ITERS; ++i) {
