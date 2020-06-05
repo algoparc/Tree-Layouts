@@ -74,9 +74,9 @@ query-fixedN: \
 query-fixedQ: \
 	query-binarysearch-fixedQ.out \
 	query-bst-fixedQ.out \
-	query-btree-fixedN.out \
-	query-mveb-fixedN.out \
-	query-veb-fixedN.out
+	query-btree-fixedQ.out \
+	query-mveb-fixedQ.out \
+	query-veb-fixedQ.out
 
 #Common stuff
 src/common.o: src/common.cpp src/common.h src/params.h
