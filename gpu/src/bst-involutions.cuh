@@ -75,7 +75,7 @@ float timePermuteBST(TYPE *dev_A, uint64_t n) {
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    uint32_t d = log2(n) + 1;
+    uint32_t d = log2((double)n) + 1;
 
     phaseOne<TYPE><<<BLOCKS, THREADS>>>(dev_A, n, d);
     #ifdef DEBUG

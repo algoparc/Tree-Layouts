@@ -63,7 +63,7 @@ float timeQueryBST(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t numQueries) {
     TYPE *dev_queries;
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
-    #ifdef DEBUG
+    #ifdef VERIFY
     uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
     #endif
 
@@ -87,13 +87,14 @@ float timeQueryBST(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t numQueries) {
     float ms;
     cudaEventElapsedTime(&ms, start, end);
 
-    #ifdef DEBUG
+    #ifdef VERIFY
     cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
-    
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i]) {
-            //printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
+            #ifdef DEBUG
+            printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
+            #endif
             correct = false;
         }
     }

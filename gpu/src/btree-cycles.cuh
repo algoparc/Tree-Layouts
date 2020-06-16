@@ -311,6 +311,10 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     uint64_t num_partitions = (n+1)/m;          //number of full partitions
     uint64_t r = (((n+1) % m) / (b+1)) + 1;     //number of internal/root elements in the last incomplete partition (0 if all partitions are full)
 
+    #ifdef DEBUG
+    printf("extended_equidistant_gather2: n = %lu; b = %lu; num_partitions = %lu\n", n, b, num_partitions);
+    #endif
+
     if (num_partitions == 0) {      //only incomplete partition
         equidistant_gather_chunks_incomplete_warps<TYPE><<<1, WARPS>>>(dev_A, r-1, b, c);
         #ifdef DEBUG
@@ -331,23 +335,20 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     #endif
 
     //TODO: asynchronous kernel launches
-    /*equidistant_gather_chunks_partitions_warps<<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
-    if (r > 1) equidistant_gather_chunks_incomplete_warps<<<1, WARPS>>>(&dev_A[m*num_partitions], r-1, b, c);
-    */
-    equidistant_gather_chunks_partitions_blocks<TYPE><<<BLOCKS/*num_partitions*/, WARPS>>>(dev_A, m, b, c, num_partitions);
+    equidistant_gather_chunks_partitions_warps<<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
     #ifdef DEBUG
     cudaError_t cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
-        printf("equidistant_gather_chunks_partitions_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        printf("equidistant_gather_chunks_partitions_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
     #endif
 
     if (r > 1) {
-        equidistant_gather_chunks_incomplete_blocks<TYPE><<<1, THREADS>>>(&dev_A[m*num_partitions], r-1, b, c);
+        equidistant_gather_chunks_incomplete_warps<<<1, WARPS>>>(&dev_A[m*num_partitions], r-1, b, c);
         #ifdef DEBUG
         cudaError_t cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
-            printf("equidistant_gather_chunks_incomplete_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+            printf("equidistant_gather_chunks_incomplete_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
         #endif
     }
@@ -361,7 +362,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     m *= (b+1);
     c *= (b+1);
 
-    /*//Warp level rounds
+    //Warp level rounds
     while (num_partitions > 0 && c <= WARPS) {
         #ifdef DEBUG
         printf("(WARPS) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
@@ -384,10 +385,10 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         num_partitions /= (b+1);
         m *= (b+1);
         c *= (b+1);
-    }*/
+    }
 
     //Block level rounds
-    while (num_partitions >= BLOCKS /*&& c <= THREADS*/) {
+    while (num_partitions >= 1/*BLOCKS*/ && c <= THREADS) {
         #ifdef DEBUG
         printf("(BLOCKS) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
         #endif
@@ -441,7 +442,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     //Grid level rounds
     while (num_partitions > 0) {
         #ifdef DEBUG
-        printf("\n(GRID) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
+        printf("(GRID) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
         #endif
 
         //TODO: asynchronous kernel launches
@@ -571,10 +572,14 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
     uint64_t m = (b+1)*(b+1);           //pow(b+1, 2);
     uint64_t num_partitions = (n+1)/m;
 
+    #ifdef DEBUG
+    printf("\nextended_equidistant_gather: n = %lu; b = %lu; d = %u; num_partitions = %lu\n", n, b, d, num_partitions);
+    #endif
+
     //Warp level
-    /*while (num_partitions >= 1 && c <= WARPS) {
+    while (num_partitions >= 1 && c <= WARPS) {
         #ifdef DEBUG
-        printf("\n(WARP) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        printf("(WARP) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
         #endif
 
         equidistant_gather_chunks_partitions_warps<TYPE><<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
@@ -583,15 +588,15 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
         m *= (b+1);
         num_partitions /= (b+1);
         c *= (b+1);
-    }*/
+    }
 
     //Block level
-    while (num_partitions >= BLOCKS /*&& c <= THREADS*/) {
+    while (num_partitions >= 1 && c <= THREADS) {
         #ifdef DEBUG
-        printf("\n(BLOCK) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        printf("(BLOCK) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
         #endif
 
-        equidistant_gather_chunks_partitions_blocks<TYPE><<<BLOCKS/*num_partitions*/, THREADS>>>(dev_A, m, b, c, num_partitions);
+        equidistant_gather_chunks_partitions_blocks<TYPE><<<num_partitions, THREADS>>>(dev_A, m, b, c, num_partitions);
         #ifdef DEBUG
         cudaError_t cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
@@ -609,10 +614,12 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
     //Grid level
     while (num_partitions >= 1) {
         #ifdef DEBUG
-        printf("\n(GRID) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        printf("(GRID) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
         #endif
 
         int blocks = num_partitions * (c / THREADS);
+        if (blocks == 0) blocks = 1;
+
         equidistant_gather_chunks_partitions_phaseOne<TYPE><<<blocks, THREADS>>>(dev_A, m, b, c, num_partitions);
         #ifdef DEBUG
         cudaError_t cudaerr = cudaDeviceSynchronize();
@@ -689,10 +696,17 @@ double timePermuteBtree(TYPE *dev_A, uint64_t n, uint64_t b) {
         uint64_t numInternals = pow(b+1, h) - 1;
         uint64_t numLeaves = n - numInternals;
 
+        #ifdef DEBUG
+        printf("non-perfect B-tree\n");
+        #endif
+
         permute_leaves<TYPE>(dev_A, n, b, numInternals, numLeaves);
         permute<TYPE>(dev_A, n - numLeaves, b, h);
     }
     else {    //full tree
+        #ifdef DEBUG
+        printf("perfect B-tree\n");
+        #endif
         permute<TYPE>(dev_A, n, b, h+1);
     }
 

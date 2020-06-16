@@ -293,7 +293,7 @@ double timePermutevEB(TYPE *dev_A, uint64_t n) {
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-    uint32_t h = log2(n);
+    uint32_t h = log2((double)n);
     if (n != pow(2, h+1) - 1) {     //non-full tree
         printf("non-perfect vEB tree ==> NOT YET IMPLEMENTED!\n");
         return 0.;

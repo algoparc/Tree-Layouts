@@ -92,7 +92,7 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     TYPE *dev_queries;
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
-    #ifdef DEBUG
+    #ifdef VERIFY
     uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
     #endif
 
@@ -140,12 +140,14 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     float ms;
     cudaEventElapsedTime(&ms, start, end);
 
-    #ifdef DEBUG
+    #ifdef VERIFY
     cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i] || answers[i] == n) {
-            //printf("query = %lu; A[%lu] = %lu\n", queries[i], answers[i], A[answers[i]]);
+            #ifdef DEBUG
+            printf("query = %lu; A[%lu] = %lu\n", queries[i], answers[i], A[answers[i]]);
+            #endif
             correct = false;
         }
     }

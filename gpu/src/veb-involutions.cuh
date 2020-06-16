@@ -86,7 +86,7 @@ __global__ void permutevEB_blocks(TYPE *A, uint32_t root_d, uint32_t leaf_d, uin
 //Performs a single round of the van Emde Boas tree layout permutation via B-tree involutions
 template<typename TYPE>
 void permutevEB_grid(TYPE *dev_A, uint64_t n, uint32_t root_d, uint32_t leaf_d, uint64_t r, uint64_t l) {
-    uint32_t h = log2(n)/log2(l+1);
+    uint32_t h = log2((double)n)/log2((double)(l+1));
     if (n != pow(l+1, h+1) - 1) {
         //printf("non-perfect B-tree of height %ld\n", h);
         shuffle_dk_phaseTwo<TYPE><<<BLOCKS, THREADS>>>(dev_A - 1, l+1, n+1);
@@ -194,7 +194,7 @@ void permutevEB_cpuRecursive(TYPE *dev_A, uint64_t n, uint32_t d) {
         threads = 32;
     }
 
-    uint32_t h = log2(n)/log2(l+1);
+    uint32_t h = log2((double)n)/log2((double)(l+1));
     if (n != pow(l+1, h+1) - 1) {
         //printf("non-perfect B-tree of height %ld\n", h);
         shuffle_dk_phaseTwo<TYPE><<<blocks, threads>>>(dev_A - 1, l+1, n+1);
@@ -263,7 +263,7 @@ double timePermutevEB(TYPE *dev_A, uint64_t n) {
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-    uint32_t h = log2(n);
+    uint32_t h = log2((double)n);
     if (n != pow(2, h+1) - 1) {     //non-full tree
         printf("non-perfect vEB tree ==> NOT YET IMPLEMENTED!\n");
         return 0.;
