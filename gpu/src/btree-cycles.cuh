@@ -144,7 +144,7 @@ __global__ void equidistant_gather_chunks_partitions_blocks(TYPE *A, uint64_t m,
 //Assumes total number of warps launched is equal to num_partitions
 //1 warp per partition ==> 1 thread per cycle/shift
 template<typename TYPE>
-__global__ void equidistant_gather_chunks_partitions_warps(TYPE *A, uint64_t m, uint64_t b, uint64_t c, uint32_t num_partitions) {
+__global__ void equidistant_gather_chunks_partitions_warps(TYPE *A, uint64_t n, uint64_t m, uint64_t b, uint64_t c, uint32_t num_partitions) {
     int wid = (threadIdx.x + blockIdx.x*blockDim.x)/WARPS;      //global warp id
     int tid = threadIdx.x % WARPS;                              //thread id within warp
 
@@ -152,6 +152,8 @@ __global__ void equidistant_gather_chunks_partitions_warps(TYPE *A, uint64_t m, 
     if (idx != 0) --idx;
     TYPE *a = &A[idx];
 
+    //TODO: For small b values, this loop needs to be optimized so that there are WARPS/c threads per cycle
+    //I.e., change loop to perform coalsesced global accesses
     for (uint64_t i = tid; i < b; i += WARPS) {            //1 thread per cycle
         for (uint64_t t = 0; t < c; ++t) {
             TYPE temp1, temp2;
@@ -313,12 +315,13 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
 
     #ifdef DEBUG
     printf("extended_equidistant_gather2: n = %lu; b = %lu; num_partitions = %lu\n", n, b, num_partitions);
+    cudaError_t cudaerr;
     #endif
 
     if (num_partitions == 0) {      //only incomplete partition
         equidistant_gather_chunks_incomplete_warps<TYPE><<<1, WARPS>>>(dev_A, r-1, b, c);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_incomplete_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -335,9 +338,9 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     #endif
 
     //TODO: asynchronous kernel launches
-    equidistant_gather_chunks_partitions_warps<<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
+    equidistant_gather_chunks_partitions_warps<<<num_partitions, WARPS>>>(dev_A, n, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
     #ifdef DEBUG
-    cudaError_t cudaerr = cudaDeviceSynchronize();
+    cudaerr = cudaDeviceSynchronize();
     if (cudaerr != cudaSuccess) {
         printf("equidistant_gather_chunks_partitions_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
     }
@@ -346,7 +349,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     if (r > 1) {
         equidistant_gather_chunks_incomplete_warps<<<1, WARPS>>>(&dev_A[m*num_partitions], r-1, b, c);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_incomplete_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -363,21 +366,49 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     c *= (b+1);
 
     //Warp level rounds
-    while (num_partitions > 0 && c <= WARPS) {
+    while (num_partitions >= 1 && c <= WARPS) {
         #ifdef DEBUG
         printf("(WARPS) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
         #endif
 
         //TODO: asynchronous kernel launches
-        equidistant_gather_chunks_partitions_warps<TYPE><<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
+        equidistant_gather_chunks_partitions_warps<TYPE><<<num_partitions, WARPS>>>(dev_A, n, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
+        #ifdef DEBUG
+        cudaerr = cudaDeviceSynchronize();
+        if (cudaerr != cudaSuccess) {
+            printf("equidistant_gather_chunks_partitions_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        #endif
+
         if (r_c > 1) {
             equidistant_gather_chunks_incomplete_warps<TYPE><<<1, WARPS>>>(&dev_A[num_partitions*m - 1 + c], r_c-1, b, c);
+            #ifdef DEBUG
+            cudaerr = cudaDeviceSynchronize();
+            if (cudaerr != cudaSuccess) {
+                printf("equidistant_gather_chunks_incomplete_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+            }
+            #endif
         }
         if (r_c > 0) {           
             shift_right_phaseOne<TYPE><<<1, WARPS>>>(&dev_A[num_partitions*m - 1 + r_c*c], r_c*b*c + r, r);
+            #ifdef DEBUG
+            cudaerr = cudaDeviceSynchronize();
+            if (cudaerr != cudaSuccess) {
+                printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+            }
+            #endif
+
             shift_right_phaseTwo<TYPE><<<1, WARPS>>>(&dev_A[num_partitions*m - 1 + r_c*c], r_c*b*c + r, r);
+            #ifdef DEBUG
+            cudaerr = cudaDeviceSynchronize();
+            if (cudaerr != cudaSuccess) {
+                printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+            }
+            #endif
         }
+        #ifdef DEBUG
         cudaDeviceSynchronize();
+        #endif
 
         r += r_c * c;
         r_c = num_partitions % (b+1);
@@ -388,15 +419,15 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     }
 
     //Block level rounds
-    while (num_partitions >= 1/*BLOCKS*/ && c <= THREADS) {
+    while (num_partitions >= 1 && c <= THREADS) {
         #ifdef DEBUG
         printf("(BLOCKS) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
         #endif
 
         //TODO: asynchronous kernel launches
-        equidistant_gather_chunks_partitions_blocks<TYPE><<<BLOCKS/*num_partitions*/, THREADS>>>(dev_A, m, b, c, num_partitions);
+        equidistant_gather_chunks_partitions_blocks<TYPE><<<num_partitions, THREADS>>>(dev_A, m, b, c, num_partitions);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_partitions_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -405,7 +436,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         if (r_c > 1) {
             equidistant_gather_chunks_incomplete_blocks<TYPE><<<1, THREADS>>>(&dev_A[num_partitions*m - 1 + c], r_c-1, b, c);
             #ifdef DEBUG
-            cudaError_t cudaerr = cudaDeviceSynchronize();
+            cudaerr = cudaDeviceSynchronize();
             if (cudaerr != cudaSuccess) {
                 printf("equidistant_gather_chunks_incomplete_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
             }
@@ -414,11 +445,12 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         if (r_c > 0) {           
             shift_right_phaseOne<TYPE><<<1, THREADS>>>(&dev_A[num_partitions*m - 1 + r_c*c], r_c*b*c + r, r);
             #ifdef DEBUG
-            cudaError_t cudaerr = cudaDeviceSynchronize();
+            cudaerr = cudaDeviceSynchronize();
             if (cudaerr != cudaSuccess) {
                 printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
             }
             #endif
+
             shift_right_phaseTwo<TYPE><<<1, THREADS>>>(&dev_A[num_partitions*m - 1 + r_c*c], r_c*b*c + r, r);
             #ifdef DEBUG
             cudaerr = cudaDeviceSynchronize();
@@ -440,7 +472,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
     }
 
     //Grid level rounds
-    while (num_partitions > 0) {
+    while (num_partitions >= 1) {
         #ifdef DEBUG
         printf("(GRID) m = %lu; c = %lu; num_partitions = %lu; r_c = %lu; r = %lu\n", m, c, num_partitions, r_c, r);
         #endif
@@ -449,7 +481,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         int blocks = num_partitions * (c / THREADS);
         equidistant_gather_chunks_partitions_phaseOne<TYPE><<<blocks, THREADS>>>(dev_A, m, b, c, num_partitions);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_partitions_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
@@ -520,7 +552,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         else */if (c <= THREADS) {
             equidistant_gather_chunks_incomplete_blocks<TYPE><<<1, THREADS>>>(&dev_A[c-1], r_c, b, c);
             #ifdef DEBUG
-            cudaError_t cudaerr = cudaDeviceSynchronize();
+            cudaerr = cudaDeviceSynchronize();
             if (cudaerr != cudaSuccess) {
                 printf("equidistant_gather_chunks_incomplete_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
             }
@@ -529,7 +561,7 @@ void extended_equidistant_gather2(TYPE *dev_A, uint64_t n, uint64_t b) {
         else {
             equidistant_gather_chunks_incomplete_phaseOne<TYPE><<<b, THREADS>>>(&dev_A[c-1], r_c, b, c);
             #ifdef DEBUG
-            cudaError_t cudaerr = cudaDeviceSynchronize();
+            cudaerr = cudaDeviceSynchronize();
             if (cudaerr != cudaSuccess) {
                 printf("equidistant_gather_chunks_incomplete_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
             }
@@ -574,16 +606,34 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
 
     #ifdef DEBUG
     printf("\nextended_equidistant_gather: n = %lu; b = %lu; d = %u; num_partitions = %lu\n", n, b, d, num_partitions);
+    struct timespec start, end;
+    double ms;
+    cudaError_t cudaerr;
     #endif
 
-    //Warp level
+    //Warp level: 1 warp per partition
     while (num_partitions >= 1 && c <= WARPS) {
         #ifdef DEBUG
         printf("(WARP) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        clock_gettime(CLOCK_MONOTONIC, &start);
         #endif
 
-        equidistant_gather_chunks_partitions_warps<TYPE><<<num_partitions, WARPS>>>(dev_A, m, b, c, num_partitions);      //1 warp per block... might not be ideal?
+        //Using 1 warp per block (suprisingly) performs faster than multiple warps per block
+        equidistant_gather_chunks_partitions_warps<TYPE><<<num_partitions, WARPS>>>(dev_A, n, m, b, c, num_partitions);
+        //int blocks = (num_partitions + (THREADS/WARPS) - 1) / (THREADS/WARPS);      //ceiling(num_partitions/(THREADS/WARPS))
+        //equidistant_gather_chunks_partitions_warps<TYPE><<<blocks, THREADS>>>(dev_A, n, m, b, c, num_partitions);
+
+        #ifdef DEBUG
+        cudaerr = cudaDeviceSynchronize();
+        if (cudaerr != cudaSuccess) {
+            printf("equidistant_gather_chunks_partitions_warps failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond
+        printf("\t==> %f ms\n", ms);
+        #else
         cudaDeviceSynchronize();
+        #endif
 
         m *= (b+1);
         num_partitions /= (b+1);
@@ -594,14 +644,18 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
     while (num_partitions >= 1 && c <= THREADS) {
         #ifdef DEBUG
         printf("(BLOCK) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        clock_gettime(CLOCK_MONOTONIC, &start);
         #endif
 
         equidistant_gather_chunks_partitions_blocks<TYPE><<<num_partitions, THREADS>>>(dev_A, m, b, c, num_partitions);
         #ifdef DEBUG
-        cudaError_t cudaerr = cudaDeviceSynchronize();
+        cudaerr = cudaDeviceSynchronize();
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_partitions_blocks failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond
+        printf("\t==> %f ms\n", ms);
         #else
         cudaDeviceSynchronize();
         #endif
@@ -615,6 +669,7 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
     while (num_partitions >= 1) {
         #ifdef DEBUG
         printf("(GRID) m = %lu; b = %lu; c = %lu; num_partitions = %lu\n", m, b, c, num_partitions);
+        clock_gettime(CLOCK_MONOTONIC, &start);
         #endif
 
         int blocks = num_partitions * (c / THREADS);
@@ -634,6 +689,9 @@ void extended_equidistant_gather(TYPE *dev_A, uint64_t n, uint64_t b, uint32_t d
         if (cudaerr != cudaSuccess) {
             printf("equidistant_gather_chunks_partitions_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
         }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond
+        printf("\t==> %f ms\n", ms);
         #else
         cudaDeviceSynchronize();
         #endif
@@ -650,6 +708,10 @@ void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numInternals, 
     uint64_t r = numLeaves % b;     //number of leaves belonging to a non-full node
     uint64_t l = numLeaves - r;     //number of leaves belonging to full nodes
     uint64_t i = l/b;               //number of internals partitioning the leaf nodes
+
+    #ifdef DEBUG
+    printf("permute_leaves: r = %lu; l = %lu; i = %lu\n", r, l , i);
+    #endif
 
     extended_equidistant_gather2<TYPE>(dev_A, l+i, b);
 

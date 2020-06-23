@@ -24,40 +24,50 @@
 #include "common.cuh"
 
 //Searches given B-tree level order layout for the query'd element
-//1 query per thread
+//1 query per warp
+//Assumes b = WARPS
 //Returns index of query'd element (if found)
 //Otherwise, returns n (element not found)
 template<typename TYPE>
 __device__ uint64_t searchBtree(TYPE *A, uint64_t n, uint64_t b, TYPE query) {
     TYPE current;
     uint64_t i = 0;
-    uint64_t j;
+    uint64_t j = threadIdx.x % WARPS;       //index within each warp
+    unsigned mask, ballot;
+    int branch;
 
-    while (i < n) {
-        for (j = 0; j < b; ++j) {   //linear search to find child pointer to follow
-            current = A[i + j];
+    while (i + j < n) {
+        current = A[i + j];
 
-            if (query == current) {
-                return i+j;
-            }
-            else if (query < current) {
-                break;
-            }
+        mask = __activemask();
+
+        if (__any_sync(mask, query == current) != 0) {
+            if (query == current) return i + j;
+            else return n;
         }
-        i = (i + 1)*(b + 1) + j*b - 1;
+        else {
+            ballot = __ballot_sync(mask, query < current);
+            branch = __ffs(ballot) - 1;
+            if (branch == -1) branch = 32;      //query is greater than all pivots
+            
+            i = (i + 1)*(b + 1) + branch*b - 1;
+        }
     }
 
     return n;   //error value, i.e., element not found
 }
 
+
 //Performs all of the queries given in the array queries
-//index in A of the queried items are saved in the answers array
+//index in A of the queried items are saved in the queries array
 template<typename TYPE>
 __global__ void searchAll(TYPE *A, uint64_t n, uint64_t b, TYPE *queries, uint64_t numQueries) {
-    int tid = threadIdx.x + blockIdx.x * THREADS;
+    int wid = (threadIdx.x + blockIdx.x * THREADS) / WARPS;
+    uint64_t tmp;
 
-    for (uint64_t i = tid; i < numQueries; i += BLOCKS*THREADS) {
-        queries[i] = searchBtree<TYPE>(A, n, b, queries[i]);
+    for (uint64_t i = wid; i < numQueries; i += (BLOCKS*THREADS) / WARPS) {
+        tmp = searchBtree<TYPE>(A, n, b, queries[i]);
+        if (tmp != n) queries[i] = tmp;
     }
 }
 
@@ -102,7 +112,7 @@ float timeQueryBtree(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numQ
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i]) {
             #ifdef DEBUG
-            printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
+            printf("query = %lu; A[%lu] = %lu\n", queries[i], answers[i], A[answers[i]]);
             #endif
             correct = false;
         }

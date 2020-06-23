@@ -17,9 +17,9 @@
 #ifndef PARAMS_CUH
 #define PARAMS_CUH
 
-#define B 16
+#define B 16		//B value for uint64_t
 #define ITERS 10
-//#define DEBUG 0  //comment out to remove debug print statements
+//#define DEBUG 0  	//comment out to remove debug print statements
 #define VERIFY		//comment out to remove query verification
 
 #define BLOCKS 2048		//chosen arbitrarily
