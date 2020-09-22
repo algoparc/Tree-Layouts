@@ -23,36 +23,36 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    uint64_t q = atol(argv[1]);
+    int q = atoi(argv[1]);
     if (q <= 0) {
         fprintf(stderr, "Number of queries must be a positive integer\n");
     }
-    uint64_t b = atoi(argv[2]);
+    int b = atoi(argv[2]);
 
-    uint64_t p = atoi(argv[3]);
+    int p = atoi(argv[3]);
     omp_set_num_threads(p);
 
     double time[ITERS];
 
-    for (uint32_t d = 22; d <= 30; ++d) {
-        uint64_t n = pow(2, d) - 1;
+    for (int d = 22; d <= 31; ++d) {
+        int n = pow(2, d) - 1;
         #ifdef DEBUG
-        printf("n = 2^%d - 1 = %lu; b = %lu\n", d, n, b);
+        printf("n = 2^%d - 1 = %d; b = %d\n", d, n, b);
         #endif
 
-        uint64_t *A = (uint64_t *)malloc(n * sizeof(uint64_t));
-        uint64_t *dev_A;
-        cudaMalloc(&dev_A, n * sizeof(uint64_t));
+        int *A = (int *)malloc(n * sizeof(int));
+        int *dev_A;
+        cudaMalloc(&dev_A, n * sizeof(int));
 
         //Construction
-        initSortedList<uint64_t>(A, n);
-        cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-        timePermuteBtree<uint64_t>(dev_A, n, b);
-        cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
+        initSortedList<int>(A, n);
+        cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
+        timePermuteBtree<int>(dev_A, n, b);
+        cudaMemcpy(A, dev_A, n * sizeof(int), cudaMemcpyDeviceToHost);
 
         //Querying
-        for (uint32_t i = 0; i < ITERS; ++i) {
-            time[i] = timeQueryBtree<uint64_t>(A, dev_A, n, b, q);
+        for (int i = 0; i < ITERS; ++i) {
+            time[i] = timeQueryBtree<int>(A, dev_A, n, b, q);
         }
         printQueryTimings(n, q, time); 
 

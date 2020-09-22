@@ -22,27 +22,27 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    uint64_t n = atol(argv[1]);
-    uint64_t b = atoi(argv[2]);
+    int n = atoi(argv[1]);
+    int b = atoi(argv[2]);
     #ifdef DEBUG
-    printf("n = %lu; b = %lu\n", n, b);
+    printf("n = %d; b = %d\n", n, b);
     #endif
 
-    uint64_t p = atoi(argv[3]);
+    int p = atoi(argv[3]);
     omp_set_num_threads(p);
 
-    uint64_t *A = (uint64_t *)malloc(n * sizeof(uint64_t));
-    uint64_t *dev_A;
-    cudaMalloc(&dev_A, n * sizeof(uint64_t));
+    int *A = (int *)malloc(n * sizeof(int));
+    int *dev_A;
+    cudaMalloc(&dev_A, n * sizeof(int));
 
     double time[ITERS];
 
     //Construction
-    for (uint32_t i = 0; i < ITERS; ++i) {
-        initSortedList<uint64_t>(A, n);
-        cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-        time[i] = timePermuteBtree<uint64_t>(dev_A, n, b);
-        cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < ITERS; ++i) {
+        initSortedList<int>(A, n);
+        cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
+        time[i] = timePermuteBtree<int>(dev_A, n, b);
+        cudaMemcpy(A, dev_A, n * sizeof(int), cudaMemcpyDeviceToHost);
     }
     printTimings(n, time);
 

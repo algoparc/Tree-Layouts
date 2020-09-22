@@ -23,31 +23,31 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    uint64_t q = atol(argv[1]);
+    int q = atoi(argv[1]);
     if (q <= 0) {
         fprintf(stderr, "Number of queries must be a positive integer\n");
     }
 
-    uint32_t p = atoi(argv[2]);
+    int p = atoi(argv[2]);
     omp_set_num_threads(p);
 
     double time[ITERS];
 
-    for (uint32_t d = 22; d <= 30; ++d) {
-        uint64_t n = pow(2, d) - 1;
+    for (int d = 22; d <= 31; ++d) {
+        int n = pow(2, d) - 1;
         #ifdef DEBUG
-        printf("n = 2^%d - 1 = %lu\n", d, n);
+        printf("n = 2^%d - 1 = %d\n", d, n);
         #endif
 
-        uint64_t *A = (uint64_t *)malloc(n * sizeof(uint64_t));
-        uint64_t *dev_A;
-        cudaMalloc(&dev_A, n * sizeof(uint64_t));
+        int *A = (int *)malloc(n * sizeof(int));
+        int *dev_A;
+        cudaMalloc(&dev_A, n * sizeof(int));
 
         //Construction
-        initSortedList<uint64_t>(A, n);
-        cudaMemcpy(dev_A, A, n * sizeof(uint64_t), cudaMemcpyHostToDevice);
-        timePermutevEB<uint64_t>(dev_A, n);
-        cudaMemcpy(A, dev_A, n * sizeof(uint64_t), cudaMemcpyDeviceToHost);
+        initSortedList<int>(A, n);
+        cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
+        timePermutevEB<int>(dev_A, n);
+        cudaMemcpy(A, dev_A, n * sizeof(int), cudaMemcpyDeviceToHost);
 
         //Build table used in querying
         vEB_table *table = (vEB_table *)calloc(d, sizeof(vEB_table));
@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
         cudaMemcpy(dev_table, table, d * sizeof(vEB_table), cudaMemcpyHostToDevice);
 
         //Querying
-        for (uint32_t i = 0; i < ITERS; ++i) {
-            time[i] = timeQueryvEB<uint64_t>(A, dev_A, dev_table, n, d, q);
+        for (int i = 0; i < ITERS; ++i) {
+            time[i] = timeQueryvEB<int>(A, dev_A, dev_table, n, d, q);
         }
         printQueryTimings(n, q, time); 
 
