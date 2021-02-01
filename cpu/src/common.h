@@ -58,4 +58,142 @@ TYPE *createRandomQueries(TYPE *data, uint64_t n, uint64_t numQueries) {
 
     return queries;
 }
+
+//shift n contiguous elements by k to the right via array reversals
+template<typename TYPE>
+void shift_right(TYPE *A, uint64_t n, uint64_t k) {
+    uint64_t i, j;
+    TYPE temp;
+
+    //stage 1: reverse whole array
+    for (i = 0; i < n/2; ++i) {
+        j = n - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    //stage 2: reverse first k elements & last (n - k) elements
+    for (i = 0; i < k/2; ++i) {
+        j = k - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    for (i = k; i < (n + k)/2; ++i) {
+        j = n - (i - k) - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+}
+
+//shift n contiguous elements by k to the right via array reversals using p threads
+template<typename TYPE>
+void shift_right_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
+    uint64_t i, j;
+    TYPE temp;
+
+    //stage 1: reverse whole array
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = 0; i < n/2; ++i) {
+        j = n - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    //stage 2: reverse first k elements & last (n - k) elements
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = 0; i < k/2; ++i) {
+        j = k - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = k; i < (n + k)/2; ++i) {
+        j = n - (i - k) - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+}
+
+//shift n contiguous elements by k to the left via array reversals
+template<typename TYPE>
+void shift_left(TYPE *A, uint64_t n, uint64_t k) {
+    uint64_t i, j;
+    TYPE temp;
+
+    //stage 1: reverse first k elements & last (n - k) elements
+    for (i = 0; i < k/2; ++i) {
+        j = k - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    for (i = k; i < (n + k)/2; ++i) {
+        j = n - (i - k) - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    //stage 2: reverse whole array
+    for (i = 0; i < n/2; ++i) {
+        j = n - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+}
+
+//shift n contiguous elements by k to the left via array reversals using p threads
+template<typename TYPE>
+void shift_left_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
+    uint64_t i, j;
+    TYPE temp;
+
+    //stage 1: reverse first k elements & last (n - k) elements
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = 0; i < k/2; ++i) {
+        j = k - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = k; i < (n + k)/2; ++i) {
+        j = n - (i - k) - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+
+    //stage 2: reverse whole array
+    #pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
+    for (i = 0; i < n/2; ++i) {
+        j = n - i - 1;
+
+        temp = A[i];
+        A[i] = A[j];
+        A[j] = temp;
+    }
+}
 #endif

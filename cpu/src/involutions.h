@@ -24,6 +24,7 @@
 #include <omp.h>
 
 #include "params.h"
+#include "common.h"
 
 uint64_t reverse(uint64_t x);
 uint64_t rev_d(uint64_t i, uint64_t d);
@@ -220,6 +221,7 @@ void unshuffle_dk_parallel(TYPE *A, uint64_t k, uint64_t n, uint32_t p) {
     }
 }
 
+/*
 //shift n contiguous elements by k to the right via array reversals
 template<typename TYPE>
 void shift_right(TYPE *A, uint64_t n, uint64_t k) {
@@ -357,4 +359,5 @@ void shift_left_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
         A[j] = temp;
     }
 }
+*/
 #endif

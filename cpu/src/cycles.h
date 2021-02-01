@@ -24,7 +24,9 @@
 #include <math.h>
 
 #include "params.h"
+#include "common.h"
 
+/*
 //shift n contiguous elements by k to the right via array reversals
 template<typename TYPE>
 void shift_right(TYPE *A, uint64_t n, uint64_t k) {
@@ -162,6 +164,7 @@ void shift_left_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
     	A[j] = temp;
   	}
 }
+*/
 
 //Performs the equidistant gather on r root elements and l leaf elements
 //Assumes r <= l

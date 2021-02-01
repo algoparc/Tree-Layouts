@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
-#include "../src/bst-involutions.h"
+#include "../src/bst-hybrid.h"
 #include "../src/query-bst.h"
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
-        fprintf(stderr, "Usage: %s <integer d such that n = 2^d - 1> <number of threads> <0/1 ==> no prefetching/prefetching>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <number of elements> <number of threads> <0/1 ==> no prefetching/prefetching>\n", argv[0]);
         exit(1);
     }
 
-    uint32_t d = atoi(argv[1]);
-    uint64_t n = pow(2, d) - 1;
-    #ifdef DEBUG
-    printf("n = 2^%d - 1 = %lu\n", d, n);
-    #endif
-
+    int n = atol(argv[1]);
     int p = atoi(argv[2]);
     omp_set_num_threads(p);
     int prefetch = atoi(argv[3]);
@@ -38,7 +33,7 @@ int main(int argc, char *argv[]) {
 
     //Construction
     initSortedList<uint64_t>(A, n);
-    timePermuteBST<uint64_t>(A, n, d, p);
+    timePermuteBST<uint64_t>(A, n, p);
 
     //Querying
     uint64_t q = 1000000;

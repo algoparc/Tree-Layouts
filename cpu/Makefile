@@ -17,8 +17,7 @@
 OPTIONS=-O3 -fopenmp
 
 default: \
-	build-all \
-	query-all
+	test-bst-involutions.out
 
 bst-all: \
 	build-bst-cycles.out \
@@ -82,8 +81,18 @@ query-fixedQ: \
 src/common.o: src/common.cpp src/common.h src/params.h
 	g++ $(OPTIONS) -c src/common.cpp -o src/common.o
 
-src/involutions.o: src/involutions.cpp src/involutions.h src/params.h
+src/involutions.o: src/involutions.cpp src/involutions.h src/params.h src/common.o
 	g++ $(OPTIONS) -c src/involutions.cpp -o src/involutions.o
+
+#Bandwidth tests
+bandwidth_gather.out: test/bandwidth_gather.cpp src/cycles.h src/common.o
+	g++ $(OPTIONS) test/bandwidth_gather.cpp src/common.o -o bandwidth_gather.out
+
+bandwidth_swap.out: test/bandwidth_swap.cpp src/common.o
+	g++ $(OPTIONS) test/bandwidth_swap.cpp src/common.o -o bandwidth_swap.out
+
+bandwidth_copy.out: test/bandwidth_copy.cpp src/common.o
+	g++ $(OPTIONS) test/bandwidth_copy.cpp src/common.o -o bandwidth_copy.out
 
 #Binary Search
 query-binarysearch-fixedN.out: test/query-binarysearch-fixedN.cpp src/binary-search.h src/common.o
@@ -99,10 +108,13 @@ build-bst-cycles.out: test/build-bst-cycles.cpp src/bst-cycles.h src/cycles.h sr
 build-bst-involutions.out: test/build-bst-involutions.cpp src/bst-involutions.h src/involutions.o src/common.o
 	g++ $(OPTIONS) test/build-bst-involutions.cpp src/involutions.o src/common.o -o build-bst-involutions.out
 
-query-bst-fixedN.out: test/query-bst-fixedN.cpp src/query-bst.h src/bst-involutions.h src/involutions.o src/common.o
+build-bst-hybrid.out: test/build-bst-hybrid.cpp src/bst-hybrid.h src/cycles.h src/involutions.o src/common.o
+	g++ $(OPTIONS) test/build-bst-hybrid.cpp src/involutions.o src/common.o -o build-bst-hybrid.out
+
+query-bst-fixedN.out: test/query-bst-fixedN.cpp src/query-bst.h src/bst-hybrid.h src/cycles.h src/involutions.o src/common.o
 	g++ $(OPTIONS) test/query-bst-fixedN.cpp src/involutions.o src/common.o -o query-bst-fixedN.out
 
-query-bst-fixedQ.out: test/query-bst-fixedQ.cpp src/query-bst.h src/bst-involutions.h src/involutions.o src/common.o
+query-bst-fixedQ.out: test/query-bst-fixedQ.cpp src/query-bst.h src/bst-hybrid.h src/cycles.h src/involutions.o src/common.o
 	g++ $(OPTIONS) test/query-bst-fixedQ.cpp src/involutions.o src/common.o -o query-bst-fixedQ.out	
 
 #Btree

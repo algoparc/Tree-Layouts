@@ -27,12 +27,45 @@
 #include "common.h"
 #include "involutions.h"
 
+//Permutes sorted array into BST layout for n = 2^d - 1
 template<typename TYPE>
-double timePermuteBST(TYPE *A, uint64_t n, uint64_t d, uint32_t p) {
+void permute(TYPE *A, uint64_t n, uint32_t d) {
     uint64_t j;
     TYPE temp;
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    //Phase 1
+    for (uint64_t i = 0; i < n; ++i) {
+        j = rev_d(i+1, d) - 1;
+
+        if (i < j) {
+            temp = A[i];
+            A[i] = A[j];
+            A[j] = temp;
+        }
+    }
+
+    //Phase 2
+    for (uint64_t i = 0; i < n; ++i) {
+        if (i+1 > (n-1)/2) { //leafs
+            j = rev_b(i+1, d, d-1) - 1;
+        }
+        else {  //internals
+            j = rev_b(i+1, d, d - (__builtin_clzll(i+1) - (64 - d) + 1)) - 1;
+        }
+
+        if (i < j) {
+            temp = A[i];
+            A[i] = A[j];
+            A[j] = temp;
+        }
+    }
+}
+
+//Permutes sorted array into BST layout for n = 2^d - 1 using p processors
+template<typename TYPE>
+void permute_parallel(TYPE *A, uint64_t n, uint32_t d, uint32_t p) {
+    uint64_t j;
+    TYPE temp;
 
     //Phase 1
     #pragma omp parallel for shared(A, n, d) private(j, temp) schedule(guided, B) num_threads(p)
@@ -61,6 +94,53 @@ double timePermuteBST(TYPE *A, uint64_t n, uint64_t d, uint32_t p) {
             A[i] = A[j];
             A[j] = temp;
         }
+    }
+}
+
+//Gathers and shifts non-full level of leaves to the end of the array
+template<typename TYPE>
+void permute_leaves(TYPE *A, uint64_t n, uint64_t numInternals, uint64_t numLeaves) {
+    printA(A, n);
+    unshuffle_dk<TYPE>(A, 2, 2*numLeaves);
+    printA(A, n);
+    shift_right<TYPE>(A, 2*numLeaves, numLeaves);
+    printA(A, n);
+    shuffle_dk<TYPE>(&A[numLeaves], 1, numLeaves);
+    printA(A, n);
+    shift_right<TYPE>(&A[numLeaves], numInternals, numInternals - numLeaves);
+    printA(A, n);
+}
+
+//Gathers and shifts non-full level of leaves to the end of the array using p threads
+template<typename TYPE>
+void permute_leaves_parallel(TYPE *A, uint64_t n, uint64_t numInternals, uint64_t numLeaves, uint32_t p) {    
+    unshuffle_dk_parallel<TYPE>(A, 2, 2*numLeaves, p);
+    shift_right_parallel<TYPE>(A, 2*numLeaves, numLeaves, p);
+    shuffle_dk_parallel<TYPE>(&A[numLeaves], 1, numLeaves, p);
+    shift_right_parallel<TYPE>(&A[numLeaves], numInternals, numInternals - numLeaves, p);
+}
+
+template<typename TYPE>
+double timePermuteBST(TYPE *A, uint64_t n, uint32_t p) {
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    uint32_t h = log2(n);
+    if (n != pow(2, h+1) - 1) {     //non-full tree
+        uint64_t numInternals = pow(2, h) - 1;
+        uint64_t numLeaves = n - numInternals;
+        if (p == 1) {
+            permute_leaves<TYPE>(A, n, numInternals, numLeaves);
+            permute<TYPE>(A, n - numLeaves, h);
+        }
+        else {
+            permute_leaves_parallel<TYPE>(A, n, numInternals, numLeaves, p);
+            permute_parallel<TYPE>(A, n - numLeaves, h, p);
+        }
+    }
+    else {    //full tree
+        if (p == 1) permute<TYPE>(A, n, h+1);
+        else permute_parallel<TYPE>(A, n, h+1, p);
     }
 
     clock_gettime(CLOCK_MONOTONIC, &end);

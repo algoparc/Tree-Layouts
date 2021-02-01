@@ -34,23 +34,35 @@ int main(int argc, char *argv[]) {
 
     double time[ITERS];
 
-    for (uint32_t d = 22; d <= 32; ++d) {
-        uint64_t n = pow(2, d) - 1;
-        #ifdef DEBUG
-        printf("n = 2^%d - 1 = %lu\n", d, n);
-        #endif
+    uint64_t n[14] = {
+        4194303,
+        8388607,
+        10000000,
+        16777215,
+        33554431,
+        67108863,
+        100000000,
+        134217727,
+        268435455,
+        536870911,
+        1000000000,
+        1073741823,
+        2147483647,
+        4294967295
+    };
 
-        uint64_t *A = (uint64_t *)malloc(n * sizeof(uint64_t));
+    for (uint32_t i = 0; i < 14; ++i) {
+        uint64_t *A = (uint64_t *)malloc(n[i] * sizeof(uint64_t));
 
         //Construction
-        initSortedList<uint64_t>(A, n);
-        timePermuteBST<uint64_t>(A, n, d, p);
+        initSortedList<uint64_t>(A, n[i]);
+        timePermuteBST<uint64_t>(A, n[i], p);
 
         //Querying
         for (uint32_t i = 0; i < ITERS; ++i) {
-            time[i] = (prefetch == 0) ? timeQueryBST_noprefetch<uint64_t>(A, n, q, p) : timeQueryBST<uint64_t>(A, n, q, p);
+            time[i] = (prefetch == 0) ? timeQueryBST_noprefetch<uint64_t>(A, n[i], q, p) : timeQueryBST<uint64_t>(A, n[i], q, p);
         }
-        printQueryTimings(n, q, time, p);
+        printQueryTimings(n[i], q, time, p);
 
         free(A);
     }
