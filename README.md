@@ -8,7 +8,7 @@ This library provides implementations for both the CPU (C++ with OpenMP) and the
 
 The algorithms implemented are described in the paper:
 
-K. Berney, H. Casanova, A. Higuchi, B. Karsin, N. Sitchinava. "Beyond binary search: parallel in-place construction of implicit search tree layouts". In *Proceedings of the 32nd International Parallel and Distributed Processing Symposium (IPDPS)*, pages 1070-1079, 2018.
+K. Berney, H. Casanova, A. Higuchi, B. Karsin, N. Sitchinava. ["Beyond binary search: parallel in-place construction of implicit search tree layouts"](http://www2.hawaii.edu/~berneyk/publications/18-ipdps.pdf). In *Proceedings of the 32nd International Parallel and Distributed Processing Symposium (IPDPS)*, pages 1070-1079, 2018.
 
 Additional details are available in:
 
