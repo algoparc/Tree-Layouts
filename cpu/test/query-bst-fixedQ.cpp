@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../src/bst-involutions.h"
+#include "../src/bst-hybrid.h"
 #include "../src/query-bst.h"
 
 int main(int argc, char *argv[]) {
@@ -59,8 +59,8 @@ int main(int argc, char *argv[]) {
         timePermuteBST<uint64_t>(A, n[i], p);
 
         //Querying
-        for (uint32_t i = 0; i < ITERS; ++i) {
-            time[i] = (prefetch == 0) ? timeQueryBST_noprefetch<uint64_t>(A, n[i], q, p) : timeQueryBST<uint64_t>(A, n[i], q, p);
+        for (uint32_t j = 0; j < ITERS; ++j) {
+            time[j] = (prefetch == 0) ? timeQueryBST_noprefetch<uint64_t>(A, n[i], q, p) : timeQueryBST<uint64_t>(A, n[i], q, p);
         }
         printQueryTimings(n[i], q, time, p);
 

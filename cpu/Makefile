@@ -1,5 +1,5 @@
 #
-# Copyright 2018-2020 Kyle Berney
+# Copyright 2018-2021 Kyle Berney
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@
 OPTIONS=-O3 -fopenmp
 
 default: \
-	test-bst-involutions.out
+	build-all \
+	query-all
 
 bst-all: \
 	build-bst-cycles.out \
 	build-bst-involutions.out \
+	build-bst-hybrid.out \
 	query-bst-fixedN.out \
 	query-bst-fixedQ.out
 
@@ -31,12 +33,6 @@ btree-all: \
 	query-btree-fixedN.out \
 	query-btree-fixedQ.out
 
-mveb-all: \
-	build-mveb-cycles.out \
-	build-mveb-involutions.out \
-	query-mveb-fixedN.out \
-	query-mveb-fixedQ.out
-
 veb-all: \
 	build-veb-cycles.out \
 	build-veb-involutions.out \
@@ -45,18 +41,17 @@ veb-all: \
 
 build-all: \
 	cycles \
+	build-bst-hybrid.out \
 	involutions
 
 cycles: \
 	build-bst-cycles.out \
 	build-btree-cycles.out \
-	build-mveb-cycles.out \
 	build-veb-cycles.out
 
 involutions: \
 	build-bst-involutions.out \
 	build-btree-involutions.out \
-	build-mveb-involutions.out \
 	build-veb-involutions.out
 
 query-all: \
@@ -67,32 +62,20 @@ query-fixedN: \
 	query-binarysearch-fixedN.out \
 	query-bst-fixedN.out \
 	query-btree-fixedN.out \
-	query-mveb-fixedN.out \
 	query-veb-fixedN.out
 
 query-fixedQ: \
 	query-binarysearch-fixedQ.out \
 	query-bst-fixedQ.out \
 	query-btree-fixedQ.out \
-	query-mveb-fixedQ.out \
 	query-veb-fixedQ.out
 
 #Common stuff
 src/common.o: src/common.cpp src/common.h src/params.h
 	g++ $(OPTIONS) -c src/common.cpp -o src/common.o
 
-src/involutions.o: src/involutions.cpp src/involutions.h src/params.h src/common.o
+src/involutions.o: src/involutions.cpp src/involutions.h src/params.h
 	g++ $(OPTIONS) -c src/involutions.cpp -o src/involutions.o
-
-#Bandwidth tests
-bandwidth_gather.out: test/bandwidth_gather.cpp src/cycles.h src/common.o
-	g++ $(OPTIONS) test/bandwidth_gather.cpp src/common.o -o bandwidth_gather.out
-
-bandwidth_swap.out: test/bandwidth_swap.cpp src/common.o
-	g++ $(OPTIONS) test/bandwidth_swap.cpp src/common.o -o bandwidth_swap.out
-
-bandwidth_copy.out: test/bandwidth_copy.cpp src/common.o
-	g++ $(OPTIONS) test/bandwidth_copy.cpp src/common.o -o bandwidth_copy.out
 
 #Binary Search
 query-binarysearch-fixedN.out: test/query-binarysearch-fixedN.cpp src/binary-search.h src/common.o
@@ -129,22 +112,6 @@ query-btree-fixedN.out: test/query-btree-fixedN.cpp src/query-btree.h src/btree-
 
 query-btree-fixedQ.out: test/query-btree-fixedQ.cpp src/query-btree.h src/btree-cycles.h src/cycles.h src/common.o
 	g++ $(OPTIONS) test/query-btree-fixedQ.cpp src/common.o -o query-btree-fixedQ.out
-
-#mvEB
-src/query-mveb.o: src/query-mveb.cpp src/query-mveb.h src/params.h
-	g++ $(OPTIONS) -c src/query-mveb.cpp -o src/query-mveb.o
-
-build-mveb-cycles.out: test/build-mveb-cycles.cpp src/mveb-cycles.h src/cycles.h src/common.o
-	g++ $(OPTIONS) test/build-mveb-cycles.cpp src/common.o -o build-mveb-cycles.out
-
-build-mveb-involutions.out: test/build-mveb-involutions.cpp src/mveb-involutions.h src/involutions.o src/common.o
-	g++ $(OPTIONS) test/build-mveb-involutions.cpp src/involutions.o src/common.o -o build-mveb-involutions.out
-
-query-mveb-fixedN.out: test/query-mveb-fixedN.cpp src/mveb-cycles.h src/cycles.h src/query-mveb.o src/common.o
-	g++ $(OPTIONS) test/query-mveb-fixedN.cpp src/query-mveb.o src/common.o -o query-mveb-fixedN.out
-
-query-mveb-fixedQ.out: test/query-mveb-fixedQ.cpp src/mveb-cycles.h src/cycles.h src/query-mveb.o src/common.o
-	g++ $(OPTIONS) test/query-mveb-fixedQ.cpp src/query-mveb.o src/common.o -o query-mveb-fixedQ.out
 
 #vEB
 src/query-veb.o: src/query-veb.cpp src/query-veb.h src/params.h

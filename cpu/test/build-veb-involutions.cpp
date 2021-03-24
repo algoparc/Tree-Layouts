@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,11 @@
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <integer d such that n = 2^d - 1> <number of threads>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <number of elements> <number of threads>\n", argv[0]);
         exit(1);
     }
 
-    uint32_t d = atoi(argv[1]);
-    uint64_t n = pow(2, d) - 1;
-    #ifdef DEBUG
-    printf("n = 2^%d - 1 = %lu\n", d, n);
-    #endif
-
+    uint64_t n = atol(argv[1]);
     uint32_t p = atoi(argv[2]);
     omp_set_num_threads(p);
 

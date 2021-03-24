@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ * Copyright 2018-2021 Kyle Berney, Ben Karsin
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,5 +19,6 @@
 
 #define B 8
 #define ITERS 10
-//#define DEBUG 1   //comment out to remove debug print statements
+//#define DEBUG    		//comment out to remove debug print statements
+//#define VERIFY			//comment out to remove query verifications
 #endif

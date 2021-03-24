@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,147 +24,6 @@
 #include <math.h>
 
 #include "params.h"
-#include "common.h"
-
-/*
-//shift n contiguous elements by k to the right via array reversals
-template<typename TYPE>
-void shift_right(TYPE *A, uint64_t n, uint64_t k) {
-	uint64_t i, j;
-	TYPE temp;
-
-	//stage 1: reverse whole array
-	for (i = 0; i < n/2; ++i) {
-    	j = n - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-	}
-
-	//stage 2: reverse first k elements & last (n - k) elements
-	for (i = 0; i < k/2; ++i) {
-    	j = k - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-	}
-
-	for (i = k; i < (n + k)/2; ++i) {
-    	j = n - (i - k) - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-}
-
-//shift n contiguous elements by k to the right via array reversals using p threads
-template<typename TYPE>
-void shift_right_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
-  	uint64_t i, j;
-  	TYPE temp;
-
-  	//stage 1: reverse whole array
-  	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-    for (i = 0; i < n/2; ++i) {
-    	j = n - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-
-  	//stage 2: reverse first k elements & last (n - k) elements
-  	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-  	for (i = 0; i < k/2; ++i) {
-    	j = k - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-
-  	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-  	for (i = k; i < (n + k)/2; ++i) {
-    	j = n - (i - k) - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-}
-
-//shift n contiguous elements by k to the left via array reversals
-template<typename TYPE>
-void shift_left(TYPE *A, uint64_t n, uint64_t k) {
-	uint64_t i, j;
-	TYPE temp;
-
-	//stage 1: reverse first k elements & last (n - k) elements
-	for (i = 0; i < k/2; ++i) {
-    	j = k - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-
-	for (i = k; i < (n + k)/2; ++i) {
-    	j = n - (i - k) - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-	}
-
-  	//stage 2: reverse whole array
-  	for (i = 0; i < n/2; ++i) {
-    	j = n - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-}
-
-//shift n contiguous elements by k to the left via array reversals using p threads
-template<typename TYPE>
-void shift_left_parallel(TYPE *A, uint64_t n, uint64_t k, uint32_t p) {
-	uint64_t i, j;
-	TYPE temp;
-
-	//stage 1: reverse first k elements & last (n - k) elements
-	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-	for (i = 0; i < k/2; ++i) {
-    	j = k - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-
-	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-  	for (i = k; i < (n + k)/2; ++i) {
-    	j = n - (i - k) - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-
-  	//stage 2: reverse whole array
-  	#pragma omp parallel for shared(A, n, k) private(i, j, temp) schedule(guided, B) num_threads(p)
-  	for (i = 0; i < n/2; ++i) {
-    	j = n - i - 1;
-
-    	temp = A[i];
-    	A[i] = A[j];
-    	A[j] = temp;
-  	}
-}
-*/
 
 //Performs the equidistant gather on r root elements and l leaf elements
 //Assumes r <= l
@@ -285,10 +144,9 @@ void equidistant_gather_io(TYPE *A, uint64_t r, uint64_t l) {
 //Assumes r <= l
 template<typename TYPE>
 void equidistant_gather_io_parallel(TYPE *A, uint64_t r, uint64_t l, uint32_t p) {
-	uint32_t b = (r < B) ? r : B;
-
 	#pragma omp parallel for shared(A, r, l, p) schedule(guided) num_threads(p)
-	for (uint64_t i = 0; i < r; i += b) {		//perform b cycles simultaneously
+	for (uint64_t i = 0; i < r; i += B) {		//perform b cycles simultaneously
+		uint32_t b = (r < B) ? r : B;
 		if (i > r - b) {		//last chunk may be incomplete
 			b = r - (r/b)*b;
 		}

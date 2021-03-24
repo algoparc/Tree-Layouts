@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ * Copyright 2018-2021 Kyle Berney, Ben Karsin
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,12 +66,14 @@ double timeQueryBST(TYPE *A, uint64_t n, uint64_t numQueries, uint32_t p) {
 
   double ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond
 
-  #ifdef DEBUG
+  #ifdef VERIFY
   bool correct = true;
   for (uint64_t i = 0; i < numQueries; i++) {
       if (answers[i] == n || A[answers[i]] != queries[i]) {
-          //printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
-          correct = false;
+        #ifdef DEBUG
+        printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
+        #endif
+        correct = false;
       }
   }
   if (correct == false) printf("Searches failed!\n");
@@ -122,12 +124,14 @@ double timeQueryBST_noprefetch(TYPE *A, uint64_t n, uint64_t numQueries, uint32_
 
   double ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond
 
-  #ifdef DEBUG
+  #ifdef VERIFY
   bool correct = true;
   for (uint64_t i = 0; i < numQueries; i++) {
       if (answers[i] == n || A[answers[i]] != queries[i]) {
-          //printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
-          correct = false;
+        #ifdef DEBUG
+        printf("query = %lu; found = %lu\n", queries[i], A[answers[i]]);
+        #endif
+        correct = false;
       }
   }
   if (correct == false) printf("Searches failed!\n");

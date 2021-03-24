@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,15 +100,10 @@ void permute_parallel(TYPE *A, uint64_t n, uint32_t d, uint32_t p) {
 //Gathers and shifts non-full level of leaves to the end of the array
 template<typename TYPE>
 void permute_leaves(TYPE *A, uint64_t n, uint64_t numInternals, uint64_t numLeaves) {
-    printA(A, n);
     unshuffle_dk<TYPE>(A, 2, 2*numLeaves);
-    printA(A, n);
     shift_right<TYPE>(A, 2*numLeaves, numLeaves);
-    printA(A, n);
     shuffle_dk<TYPE>(&A[numLeaves], 1, numLeaves);
-    printA(A, n);
     shift_right<TYPE>(&A[numLeaves], numInternals, numInternals - numLeaves);
-    printA(A, n);
 }
 
 //Gathers and shifts non-full level of leaves to the end of the array using p threads

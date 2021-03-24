@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,9 +66,10 @@ double timePermuteBST(TYPE *A, uint64_t n, uint32_t p) {
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     uint64_t h = log2(n);
-    if (n != pow(2, h+1) - 1) {		//non-full tree
+    if (n != pow(2, h+1) - 1) {     //non-full tree
         uint64_t numInternals = pow(2, h) - 1;
         uint64_t numLeaves = n - numInternals;
+        
         if (p == 1) {
             permute_leaves<TYPE>(A, n, numInternals, numLeaves);
             permute<TYPE>(A, n - numLeaves);

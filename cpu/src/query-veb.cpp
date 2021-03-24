@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ * Copyright 2018-2021 Kyle Berney, Ben Karsin
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@
 void buildTable(vEB_table *table, uint64_t n, uint32_t d, uint32_t root_depth) {
     if (n == 1) return;
 
-    uint32_t leaf_d = (d - 2)/2 + 1;		//floor((d - 2)/2) + 1
-    uint32_t root_d = d - leaf_d;			//ceil((d - 2)/2.) + 1
+    uint32_t root_d = (d - 2)/2 + 1;		//floor((d - 2)/2) + 1
+    uint32_t leaf_d = d - root_d;			//ceil((d - 2)/2.) + 1
 
     uint64_t root_n = pow(2, root_d) - 1;		//number of nodes in the root/top tree
     uint64_t leaf_n = pow(2, leaf_d) - 1;       //number of nodes in the leaf/bottom trees

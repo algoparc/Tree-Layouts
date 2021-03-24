@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,9 @@ int main(int argc, char *argv[]) {
 
         if (q == 1000000) {
             q = 10000000;
+        }
+        else if (q >= 100000000) {
+            q += 100000000;
         }
         else {
             q += 10000000;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,22 +32,65 @@ int main(int argc, char *argv[]) {
 
     double time[ITERS];
 
-    for (uint32_t d = 22; d <= 32; ++d) {
-        uint64_t n = pow(2, d) - 1;
-        #ifdef DEBUG
-        printf("n = 2^%d - 1 = %lu\n", d, n);
-        #endif
+    uint64_t n[45] = {
+        4000000,
+        4194303,
+        8000000,
+        8388607,
+        10000000,
+        15000000,
+        16777215,
+        20000000,
+        30000000,
+        33554431,
+        40000000,
+        50000000,
+        60000000,
+        67108863,
+        70000000,
+        80000000,
+        90000000,
+        100000000,
+        110000000,
+        120000000,
+        130000000,
+        134217727,
+        140000000,
+        150000000,
+        160000000,
+        170000000,
+        180000000,
+        190000000,
+        200000000,
+        268435455,
+        300000000,
+        400000000,
+        500000000,
+        536870911,
+        600000000,
+        700000000,
+        800000000,
+        900000000,
+        1000000000,
+        1073741823,
+        2000000000,
+        2147483647,
+        3000000000,
+        4000000000,
+        4294967295
+    };
 
-        uint64_t *A = (uint64_t *)malloc(n * sizeof(uint64_t));
+    for (uint32_t i = 0; i < 45; ++i) {
+        uint64_t *A = (uint64_t *)malloc(n[i] * sizeof(uint64_t));
 
         //Construction
-        initSortedList<uint64_t>(A, n);
+        initSortedList<uint64_t>(A, n[i]);
 
         //Querying
-        for (uint32_t i = 0; i < ITERS; ++i) {
-            time[i] = timeQuery<uint64_t>(A, n, q, p);
+        for (uint32_t j = 0; j < ITERS; ++j) {
+            time[j] = timeQuery<uint64_t>(A, n[i], q, p);
         }
-        printQueryTimings(n, q, time, p);
+        printQueryTimings(n[i], q, time, p);
 
         free(A);
     }
