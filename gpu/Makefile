@@ -1,5 +1,5 @@
 #
-# Copyright 2018-2020 Kyle Berney
+# Copyright 2018-2021 Kyle Berney
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ default: \
 bst-all: \
 	build-bst-cycles.out \
 	build-bst-involutions.out \
+	build-bst-hybrid.out \
 	query-bst-fixedN.out \
 	query-bst-fixedQ.out
 
@@ -38,12 +39,6 @@ btree-all: \
 	query-btree-fixedN.out \
 	query-btree-fixedQ.out
 
-veb-all: \
-	build-veb-cycles.out \
-	build-veb-involutions.out \
-	query-veb-fixedN.out \
-	query-veb-fixedQ.out
-
 mveb-all: \
 	build-mveb-cycles.out \
 	build-mveb-involutions.out \
@@ -51,20 +46,19 @@ mveb-all: \
 	query-mveb-fixedQ.out
 
 build-all: \
-	involutions \
-	cycles
+	cycles \
+	build-bst-hybrid.out \
+	involutions
 
 involutions: \
 	build-bst-involutions.out \
 	build-btree-involutions.out \
-	build-mveb-involutions.out \
-	build-veb-involutions.out
+	build-mveb-involutions.out
 
 cycles: \
 	build-bst-cycles.out \
 	build-btree-cycles.out \
-	build-mveb-cycles.out \
-	build-veb-cycles.out
+	build-mveb-cycles.out
 
 query-all: \
 	query-fixedN \
@@ -74,15 +68,13 @@ query-fixedN: \
 	query-binarysearch-fixedN.out \
 	query-bst-fixedN.out \
 	query-btree-fixedN.out \
-	query-mveb-fixedN.out \
-	query-veb-fixedN.out 
+	query-mveb-fixedN.out
 
 query-fixedQ: \
 	query-binarysearch-fixedQ.out \
 	query-bst-fixedQ.out \
 	query-btree-fixedQ.out \
-	query-mveb-fixedQ.out \
-	query-veb-fixedQ.out
+	query-mveb-fixedQ.out
 
 #Common stuff
 src/common.o: src/common.cu src/common.cuh src/params.cuh
@@ -102,17 +94,23 @@ query-binarysearch-fixedQ.out: test/query-binarysearch-fixedQ.cu src/binary-sear
 test/build-bst-involutions.o: test/build-bst-involutions.cu src/bst-involutions.cuh src/params.cuh
 	$(NVCC) $(ARCH) $(FLAGS) -dc test/build-bst-involutions.cu -o test/build-bst-involutions.o
 
-test/query-bst-fixedN.o: test/query-bst-fixedN.cu src/query-bst.cuh src/bst-involutions.cuh src/params.cuh
+test/build-bst-hybrid.o: test/build-bst-hybrid.cu src/bst-hybrid.cuh src/cycles.cuh src/params.cuh
+	$(NVCC) $(ARCH) $(FLAGS) -dc test/build-bst-hybrid.cu -o test/build-bst-hybrid.o
+
+test/query-bst-fixedN.o: test/query-bst-fixedN.cu src/query-bst.cuh src/bst-hybrid.cuh src/cycles.cuh src/params.cuh
 	$(NVCC) $(ARCH) $(FLAGS) -dc test/query-bst-fixedN.cu -o test/query-bst-fixedN.o
 
-test/query-bst-fixedQ.o: test/query-bst-fixedQ.cu src/query-bst.cuh src/bst-involutions.cuh src/params.cuh
-	$(NVCC) $(ARCH) $(FLAGS) -dc test/query-bst-fixedQ.cu -o test/query-bst-fixedQ.o	
+test/query-bst-fixedQ.o: test/query-bst-fixedQ.cu src/query-bst.cuh src/bst-hybrid.cuh src/cycles.cuh src/params.cuh
+	$(NVCC) $(ARCH) $(FLAGS) -dc test/query-bst-fixedQ.cu -o test/query-bst-fixedQ.o
 
 build-bst-cycles.out: test/build-bst-cycles.cu src/btree-cycles.cuh src/cycles.cuh src/common.o
 	$(NVCC) $(ARCH) $(FLAGS) test/build-bst-cycles.cu src/common.o -o build-bst-cycles.out
 
 build-bst-involutions.out: test/build-bst-involutions.o src/involutions.o src/common.o
 	$(NVCC) $(ARCH) $(FLAGS) test/build-bst-involutions.o src/involutions.o src/common.o -o build-bst-involutions.out
+
+build-bst-hybrid.out: test/build-bst-hybrid.o src/involutions.o src/common.o
+	$(NVCC) $(ARCH) $(FLAGS) test/build-bst-hybrid.o src/involutions.o src/common.o -o build-bst-hybrid.out
 
 query-bst-fixedN.out: test/query-bst-fixedN.o src/involutions.o src/common.o
 	$(NVCC) $(ARCH) $(FLAGS) test/query-bst-fixedN.o src/involutions.o src/common.o -o query-bst-fixedN.out
@@ -154,25 +152,6 @@ query-mveb-fixedN.out: test/query-mveb-fixedN.cu src/mveb-cycles.cuh src/cycles.
 
 query-mveb-fixedQ.out: test/query-mveb-fixedQ.cu src/mveb-cycles.cuh src/cycles.cuh src/query-mveb.o src/common.o
 	$(NVCC) $(ARCH) $(FLAGS) test/query-mveb-fixedQ.cu src/query-mveb.o src/common.o -o query-mveb-fixedQ.out
-
-#vEB
-test/build-veb-involutions.o: test/build-veb-involutions.cu src/veb-involutions.cuh src/params.cuh
-	$(NVCC) $(ARCH) $(FLAGS) -dc test/build-veb-involutions.cu -o test/build-veb-involutions.o
-
-src/query-veb.o: src/query-veb.cu src/query-veb.cuh src/params.cuh
-	$(NVCC) $(ARCH) $(FLAGS) -dc src/query-veb.cu -o src/query-veb.o
-
-build-veb-cycles.out: test/build-veb-cycles.cu src/veb-cycles.cuh src/cycles.cuh src/common.o
-	$(NVCC) $(ARCH) $(FLAGS) test/build-veb-cycles.cu src/common.o -o build-veb-cycles.out
-
-build-veb-involutions.out: test/build-veb-involutions.o src/involutions.o src/common.o
-	$(NVCC) $(ARCH) $(FLAGS) test/build-veb-involutions.o src/involutions.o src/common.o -o build-veb-involutions.out
-
-query-veb-fixedN.out: test/query-veb-fixedN.cu src/veb-cycles.cuh src/cycles.cuh src/query-veb.o src/common.o
-	$(NVCC) $(ARCH) $(FLAGS) test/query-veb-fixedN.cu src/query-veb.o src/common.o -o query-veb-fixedN.out
-
-query-veb-fixedQ.out: test/query-veb-fixedQ.cu src/veb-cycles.cuh src/cycles.cuh src/query-veb.o src/common.o
-	$(NVCC) $(ARCH) $(FLAGS) test/query-veb-fixedQ.cu src/query-veb.o src/common.o -o query-veb-fixedQ.out
 
 clean:
 	rm -f src/*.o

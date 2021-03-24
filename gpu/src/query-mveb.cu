@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "query-veb.cuh"
+#include "query-mveb.cuh"
 
 //Builds table of size d = log_2(n) + 1, which is used to query the vEB
 //Described in "Cache Oblivious Search Trees via Binary Trees of Small Height" (Brodal, Fagerberg, and Jacob. SODA 2002)
@@ -25,15 +25,14 @@
 void buildTable(vEB_table *table, uint64_t n, uint32_t d, uint32_t root_depth) {
     if (n == 1) return;
 
-    uint32_t leaf_d = floor((d - 2) / 2.) + 1;
+    uint32_t root_d = (d - 2)/2 + 1;        //floor((d - 2)/2) + 1
+    uint32_t leaf_d = d - root_d;           //ceil((d - 2)/2.) + 1
 
     float log_leaf = log2((float)leaf_d);
-
-    if (log_leaf - ((int)log_leaf) != 0) {      //Not a perfectly balanced vEB
+    if (log_leaf - ((int)log_leaf) != 0) {      //Not a perfectly balanced vEB, i.e., d is not a power of 2
         leaf_d = pow(2, ceil(log_leaf));
+        root_d = d - leaf_d;
     }
-
-    uint32_t root_d = d - leaf_d;
 
     uint64_t root_n = pow(2, root_d) - 1;
     uint64_t leaf_n = pow(2, leaf_d) - 1;

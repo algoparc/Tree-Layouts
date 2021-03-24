@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,27 +22,27 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    int n = atoi(argv[1]);
-    int b = atoi(argv[2]);
+    uint64_t n = atol(argv[1]);
+    uint64_t b = atoi(argv[2]);
     #ifdef DEBUG
     printf("n = %lu; b = %lu\n", n, b);
     #endif
 
-    int p = atoi(argv[3]);
+    uint64_t p = atoi(argv[3]);
     omp_set_num_threads(p);
 
-    int *A = (int *)malloc(n * sizeof(int));
-    int *dev_A;
-    cudaMalloc(&dev_A, n * sizeof(int));
+    uint32_t *A = (uint32_t *)malloc(n * sizeof(uint32_t));
+    uint32_t *dev_A;
+    cudaMalloc(&dev_A, n * sizeof(uint32_t));
 
     double time[ITERS];
 
     //Construction
-    for (int i = 0; i < ITERS; ++i) {
-        initSortedList<int>(A, n);
-        cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
-        time[i] = timePermuteBtree<int>(dev_A, n, b);
-        cudaMemcpy(A, dev_A, n * sizeof(int), cudaMemcpyDeviceToHost);
+    for (uint32_t i = 0; i < ITERS; ++i) {
+        initSortedList<uint32_t>(A, n);
+        cudaMemcpy(dev_A, A, n * sizeof(uint32_t), cudaMemcpyHostToDevice);
+        time[i] = timePermuteBtree<uint32_t>(dev_A, n, b);
+        cudaMemcpy(A, dev_A, n * sizeof(uint32_t), cudaMemcpyDeviceToHost);
     }
     printTimings(n, time);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ * Copyright 2018-2021 Kyle Berney, Ben Karsin
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #ifndef PARAMS_CUH
 #define PARAMS_CUH
 
-#define B 16		//B value for uint64_t
+#define B 32		//B value for uint32_t
 #define ITERS 10
 //#define DEBUG 0  	//comment out to remove debug print statements
-#define VERIFY		//comment out to remove query verification
+//#define VERIFY		//comment out to remove query verification
 
 #define BLOCKS 2048		//chosen arbitrarily
 #define THREADS 256

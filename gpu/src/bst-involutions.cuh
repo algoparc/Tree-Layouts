@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,16 +67,81 @@ __global__ void phaseTwo(TYPE *A, uint64_t n, uint64_t d) {
     }
 }
 
-//Permutes dev_A into the implicit BST level-order layout 
-//Returns the time (in ms) to perform the permutation
-//Assumes dev_A has already been initialized
+//Gathers and shifts non-full level of leaves to the end of the array
 template<typename TYPE>
-float timePermuteBST(TYPE *dev_A, uint64_t n) {
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+void permute_leaves(TYPE *dev_A, uint64_t n, uint64_t numInternals, uint64_t numLeaves) {
+    //Unshuffle
+    shuffle_dk_phaseTwo<<<BLOCKS, THREADS>>>(dev_A, 2, 2*numLeaves);
+    #ifdef DEBUG
+    cudaError_t cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
 
-    uint32_t d = log2((double)n) + 1;
+    shuffle_dk_phaseOne<<<BLOCKS, THREADS>>>(dev_A, 2, 2*numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
 
+    //Shift Right
+    shift_right_phaseOne<<<BLOCKS, THREADS>>>(dev_A, 2*numLeaves, numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shift_right_phaseTwo<<<BLOCKS, THREADS>>>(dev_A, 2*numLeaves, numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    //Shuffle
+    shuffle_dk_phaseOne<<<BLOCKS, THREADS>>>(&dev_A[numLeaves], 1, numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shuffle_dk_phaseTwo<<<BLOCKS, THREADS>>>(&dev_A[numLeaves], 1, numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    //Shift Right
+    shift_right_phaseOne<<<BLOCKS, THREADS>>>(&dev_A[numLeaves], numInternals, numInternals - numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shift_right_phaseTwo<<<BLOCKS, THREADS>>>(&dev_A[numLeaves], numInternals, numInternals - numLeaves);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+}
+
+//Permute dev_A into the implicit BST level-order layout for n = 2^d - 1
+template<typename TYPE>
+void permute(TYPE *dev_A, uint64_t n, uint32_t d) {
     phaseOne<TYPE><<<BLOCKS, THREADS>>>(dev_A, n, d);
     #ifdef DEBUG
     cudaError_t cudaerr = cudaDeviceSynchronize();
@@ -94,6 +159,35 @@ float timePermuteBST(TYPE *dev_A, uint64_t n) {
     #else
     cudaDeviceSynchronize();
     #endif
+}
+
+//Permutes dev_A into the implicit BST level-order layout 
+//Returns the time (in ms) to perform the permutation
+//Assumes dev_A has already been initialized
+template<typename TYPE>
+float timePermuteBST(TYPE *dev_A, uint64_t n) {
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    uint32_t h = log2(n);
+    if (n != pow(2, h+1) - 1) {     //non-full tree
+        uint64_t numInternals = pow(2, h) - 1;
+        uint64_t numLeaves = n - numInternals;
+
+        #ifdef DEBUG
+        printf("non-perfect BST\n");
+        #endif
+
+        permute_leaves<TYPE>(dev_A, n, numInternals, numLeaves);
+        permute<TYPE>(dev_A, n - numLeaves, h);
+    }
+    else {      //full tree
+        #ifdef DEBUG
+        printf("perfect BST\n");
+        #endif
+        
+        permute<TYPE>(dev_A, n, h+1);
+    }
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double ms = ((end.tv_sec*1000000000. + end.tv_nsec) - (start.tv_sec*1000000000. + start.tv_nsec)) / 1000000.;   //millisecond

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ struct vEB_table {
 
 void buildTable(vEB_table *table, uint64_t n, uint32_t d, uint32_t root_depth);
 
-//Searches given Btree layout for the query'd element using the table composed of L, R, and D
+//Searches given perfect mvEB layout for the query'd element using the table composed of L, R, and D
 //Assumes L, R, and D have been initialized via buildTable()
 //pos is a pointer to a shared memory array of size d * THREADS
     //which stores the 1-indexed position of the node visited during the
@@ -67,7 +67,7 @@ __device__ uint64_t searchvEB(TYPE *A, vEB_table *table, uint64_t n, uint32_t d,
     return n;
 }
 
-//Performs all of the queries given in the array queries
+//Performs all of the queries given in the array queries for a perfect mvEB
 //index in A of the queried items are saved in the answers array
 template<typename TYPE>
 __global__ void searchAll(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYPE *queries, uint64_t numQueries) {
@@ -80,7 +80,7 @@ __global__ void searchAll(TYPE *A, vEB_table *table, uint64_t n, uint32_t d, TYP
     }
 }
 
-//Generates numQueries random queries and returns the milliseconds needed to perform the queries on the given vEB tree layout
+//Generates numQueries random queries and returns the milliseconds needed to perform the queries on the given perfect mvEB tree layout
 //Assumes dev_table have already been initialized and transferred onto the GPU
 template<typename TYPE>
 float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint32_t d, uint64_t numQueries) {
@@ -93,7 +93,7 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
     #ifdef VERIFY
-    uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
+    TYPE *answers = (TYPE *)malloc(numQueries * sizeof(TYPE));    //array to store the answers (i.e., index of the queried item)
     #endif
 
     cudaMemcpy(dev_A, A, n * sizeof(TYPE), cudaMemcpyHostToDevice);                             //transfer A to GPU
@@ -141,12 +141,157 @@ float timeQueryvEB(TYPE *A, TYPE *dev_A, vEB_table *dev_table, uint64_t n, uint3
     cudaEventElapsedTime(&ms, start, end);
 
     #ifdef VERIFY
-    cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
+    cudaMemcpy(answers, dev_queries, numQueries * sizeof(TYPE), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i] || answers[i] == n) {
             #ifdef DEBUG
-            printf("query = %lu; A[%lu] = %lu\n", queries[i], answers[i], A[answers[i]]);
+            printf("query = %u; A[%u] = %u\n", queries[i], answers[i], A[answers[i]]);
+            correct = false;
+            #endif
+        }
+    }
+    if (correct == false) printf("Searches failed!\n");
+    else printf("Searches succeeded!\n");
+    free(answers);
+    #endif
+
+    free(queries);
+    cudaFree(dev_queries);
+
+    return ms;
+}
+
+//Searches given non-perfect mvEB layout for the query'd element using the table composed of L, R, and D
+//Assumes L, R, and D have been initialized via buildTable()
+//pos is a pointer to a shared memory array of size d * THREADS
+    //which stores the 1-indexed position of the node visited during the
+    //query at current depth in the vEB tree for all threads in the thread block
+//Returns index of query'd element (if found)
+//Otherwise, returns n (element not found)
+template<typename TYPE>
+__device__ uint64_t searchvEB_nonperfect(TYPE *A, vEB_table *tables, uint64_t *idx, uint32_t *table_idx, uint64_t n, uint32_t d, TYPE query, uint32_t num_tables, uint64_t *pos) {
+    int tid = threadIdx.x;      //thread id within the thread block
+    TYPE current;
+    uint32_t current_d;
+    uint64_t i, index;
+
+    TYPE *a = A;
+    vEB_table *table;
+    uint64_t offset = 0;
+    uint32_t j = 0;
+
+    while (j < num_tables) {
+        current_d = 0;
+        i = 1;              //1-indexed position of the current node in a BFS (i.e, level order) binary search tree
+        pos[tid] = 1;
+        table = &tables[table_idx[j]];
+
+        index = 0;          //0-indexed position of the current node in the mvEB tree
+
+        while (index + offset < idx[j]) {
+            current = a[index];
+
+            if (query == current) {
+                return offset + index;
+            }
+
+            i = 2*i + (query > current);
+            current_d++;
+
+            pos[tid + blockDim.x*current_d] = pos[tid + blockDim.x*table[current_d].D] + table[current_d].R + (i & table[current_d].R) * table[current_d].L;
+
+            index = pos[tid + blockDim.x*current_d] - 1;
+        }
+
+        a = &A[idx[j]];
+        offset = idx[j];
+        ++j;
+    }
+
+    return idx[num_tables-1];       //return n
+}
+
+//Performs all of the queries given in the array queries for a non-perfect mvEB
+//index in A of the queried items are saved in the answers array
+template<typename TYPE>
+__global__ void searchAll_nonperfect(TYPE *A, vEB_table *tables, uint64_t *idx, uint32_t *table_idx, uint64_t n, uint32_t d, TYPE *queries, uint32_t num_tables, uint64_t numQueries) {
+    int tid = threadIdx.x + blockIdx.x*blockDim.x;
+    int num_threads = gridDim.x*blockDim.x;
+    extern __shared__ uint64_t pos[];
+
+    for (uint64_t i = tid; i < numQueries; i += num_threads) {
+        queries[i] = searchvEB_nonperfect<TYPE>(A, tables, idx, table_idx, n, d, queries[i], num_tables, pos);
+    }
+}
+
+//Generates numQueries random queries and returns the milliseconds needed to perform the queries on the given non-perfect mvEB tree layout
+//Assumes dev_table have already been initialized and transferred onto the GPU
+template<typename TYPE>
+float timeQueryvEB_nonperfect(TYPE *A, TYPE *dev_A, vEB_table *dev_tables, uint64_t *dev_idx, uint32_t *dev_table_idx, uint64_t n, uint32_t d, uint32_t num_tables, uint64_t numQueries) {
+    cudaEvent_t start, end;
+    cudaEventCreate(&start);
+    cudaEventCreate(&end);    
+    
+    TYPE *queries = createRandomQueries<TYPE>(A, n, numQueries);              //array to store random queries to perform
+    TYPE *dev_queries;
+    cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
+
+    #ifdef VERIFY
+    TYPE *answers = (TYPE *)malloc(numQueries * sizeof(TYPE));    //array to store the answers (i.e., index of the queried item)
+    #endif
+
+    cudaMemcpy(dev_A, A, n * sizeof(TYPE), cudaMemcpyHostToDevice);                             //transfer A to GPU
+    cudaMemcpy(dev_queries, queries, numQueries * sizeof(TYPE), cudaMemcpyHostToDevice);        //transfer queries to GPU
+
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    if ((d * sizeof(uint64_t) * THREADS) <= prop.sharedMemPerBlock) {
+        cudaEventRecord(start);
+        searchAll_nonperfect<<<BLOCKS, THREADS, (size_t)(d * sizeof(uint64_t) * THREADS)>>>(dev_A, dev_tables, dev_idx, dev_table_idx, n, d, dev_queries, num_tables, numQueries);
+        #ifdef DEBUG
+        cudaEventRecord(end);
+        cudaError_t cudaerr = cudaEventSynchronize(end);
+        if (cudaerr != cudaSuccess) {
+            printf("searchAll_nonperfect failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        #else
+        cudaEventRecord(end);
+        cudaEventSynchronize(end);
+        #endif
+    }
+    else {
+        int blocks = BLOCKS/2;
+        int threads = THREADS/2;
+        while ((d * sizeof(uint64_t) * threads) / 1024. > prop.sharedMemPerBlock && threads > WARPS) {
+            blocks /= 2;
+            threads /= 2;
+        }
+
+        cudaEventRecord(start);
+        searchAll_nonperfect<<<blocks, threads, (size_t)(d * sizeof(uint64_t) * threads)>>>(dev_A, dev_tables, dev_idx, dev_table_idx, n, d, dev_queries, num_tables, numQueries);
+        #ifdef DEBUG
+        cudaEventRecord(end);
+        cudaError_t cudaerr = cudaEventSynchronize(end);
+        if (cudaerr != cudaSuccess) {
+            printf("searchAll_nonperfect failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        #else
+        cudaEventRecord(end);
+        cudaEventSynchronize(end);
+        #endif
+    }
+
+    float ms;
+    cudaEventElapsedTime(&ms, start, end);
+
+    #ifdef VERIFY
+    cudaMemcpy(answers, dev_queries, numQueries * sizeof(TYPE), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
+    bool correct = true;
+    for (uint64_t i = 0; i < numQueries; i++) {
+        if (answers[i] == n || A[answers[i]] != queries[i] || answers[i] == n) {
+            #ifdef DEBUG
+            printf("query = %u; A[%u] = %u\n", queries[i], answers[i], A[answers[i]]);
             correct = false;
             #endif
         }

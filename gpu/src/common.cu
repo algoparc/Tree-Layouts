@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,22 @@
 
 #include "common.cuh"
 
-//debug: print out contents of array of size n
-//assumes uint64_t data types
+//Prints each element of the given array of size n
+//Assumes uint64_t data types
 void printA(uint64_t *A, uint64_t n) {
   	uint64_t i;
   	for (i = 0; i < n; i++) {
       	printf("%lu ", A[i]);
+    }
+    printf("\n");
+}
+
+//Prints each element of the given array of size n
+//Assumes uint32_t data types
+void printA(uint32_t *A, uint64_t n) {
+    uint64_t i;
+    for (i = 0; i < n; i++) {
+        printf("%u ", A[i]);
     }
     printf("\n");
 }

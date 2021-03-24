@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,41 +14,36 @@
  * limitations under the License.
  */
 
-#include "../src/bst-involutions.cuh"
+#include "../src/bst-hybrid.cuh"
 #include "../src/query-bst.cuh"
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <integer d such that n = 2^d - 1> <number of CPU threads>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <number of elements> <number of CPU threads>\n", argv[0]);
         exit(1);
     }
 
-    int d = atoi(argv[1]);
-    int n = pow(2, d) - 1;
-    #ifdef DEBUG
-    printf("n = 2^%d - 1 = %d\n", d, n);
-    #endif
-
+    uint64_t n = atol(argv[1]);
     int p = atoi(argv[2]);
     omp_set_num_threads(p);
 
-    int *A = (int *)malloc(n * sizeof(int));
-    int *dev_A;
-    cudaMalloc(&dev_A, n * sizeof(int));
+    uint32_t *A = (uint32_t *)malloc(n * sizeof(uint32_t));
+    uint32_t *dev_A;
+    cudaMalloc(&dev_A, n * sizeof(uint32_t));
 
     double time[ITERS];
 
     //Construction
-    initSortedList<int>(A, n);
-    cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
-    timePermuteBST<int>(dev_A, n);
-    cudaMemcpy(A, dev_A, n * sizeof(int), cudaMemcpyDeviceToHost);
+    initSortedList<uint32_t>(A, n);
+    cudaMemcpy(dev_A, A, n * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    timePermuteBST<uint32_t>(dev_A, n);
+    cudaMemcpy(A, dev_A, n * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
     //Querying
-    int q = 1000000;
+    uint64_t q = 1000000;
     while (q <= 100000000) {
-        for (int i = 0; i < ITERS; ++i) {
-            time[i] = timeQueryBST<int>(A, dev_A, n, q);
+        for (uint32_t i = 0; i < ITERS; ++i) {
+            time[i] = timeQueryBST<uint32_t>(A, dev_A, n, q);
         }
         printQueryTimings(n, q, time); 
         

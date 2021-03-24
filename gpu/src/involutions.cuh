@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,55 +121,6 @@ __global__ void shuffle_dk_phaseTwo(TYPE *A, uint64_t k, uint64_t n) {
     }
 }
 
-//Performs the first involution to shift n contiguous elements by k to the right via array reversals
-//This is also the second involution to perform a left shift of k elements
-template<typename TYPE>
-__global__ void shift_right_phaseOne(TYPE *A, uint64_t n, uint64_t k) {
-    int tid = threadIdx.x + blockIdx.x*blockDim.x;
-    int num_threads = gridDim.x*blockDim.x;
-
-    uint64_t j;
-    TYPE temp;
-
-    //Reverse whole array
-    for (uint64_t i = tid; i < n/2; i += num_threads) {
-        j = n - i - 1;
-
-        temp = A[i];
-        A[i] = A[j];
-        A[j] = temp;
-    }
-}
-
-//Performs the first involution to shift n contiguous elements by k to the right via array reversals
-//This is also the first involution to perform a left shift of k elements
-template<typename TYPE>
-__global__ void shift_right_phaseTwo(TYPE *A, uint64_t n, uint64_t k) {
-    int tid = threadIdx.x + blockIdx.x*blockDim.x;
-    int num_threads = gridDim.x*blockDim.x;
-
-    uint64_t j;
-    TYPE temp;
-
-    //Reverse first k elements
-    for (uint64_t i = tid; i < k/2; i += num_threads) {
-        j = k - i - 1;
-        
-        temp = A[i];
-        A[i] = A[j];
-        A[j] = temp;
-    }
-
-    //Reverse last (n - k) elements
-    for (uint64_t i = tid + k; i < (n + k)/2; i += num_threads) {
-        j = n - (i - k) - 1;
-
-        temp = A[i];
-        A[i] = A[j];
-        A[j] = temp;
-    }
-}
-
 //Performs the first involution of the k-way unshuffle on each partition of m elements in array A of size n
 //Assumes n is a multiple of m = k^d - 1
 //Assumes gridDim.x is greater than n/m
@@ -180,20 +131,20 @@ __global__ void unshuffle_grid_phaseOne(TYPE *A, uint64_t n, uint64_t k, uint64_
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t j;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t j;
-    TYPE temp;
+        //PHASE 1: rev_d
+        for (uint64_t i = tid; i < m; i += blocks*blockDim.x) {
+            j = rev_base_d(i+1, k, d) - 1;
 
-    //PHASE 1: rev_d
-    for (uint64_t i = tid; i < m; i += blocks*blockDim.x) {
-        j = rev_base_d(i+1, k, d) - 1;
-
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
     }
 }
@@ -208,20 +159,20 @@ __global__ void unshuffle_grid_phaseTwo(TYPE *A, uint64_t n, uint64_t k, uint64_
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t j;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t j;
-    TYPE temp;
-
-    //PHASE 2: rev_{d-1}
-    for (uint64_t i = tid; i < m; i += blocks*blockDim.x) {
-        j = rev_base_b(i+1, k, d, d-1) - 1;
-        
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+        //PHASE 2: rev_{d-1}
+        for (uint64_t i = tid; i < m; i += blocks*blockDim.x) {
+            j = rev_base_b(i+1, k, d, d-1) - 1;
+            
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
     }
 }
@@ -236,19 +187,19 @@ __global__ void shuffle_dk_grid_phaseOne(TYPE *A, uint64_t n, uint64_t k, uint64
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += blocks*blockDim.x) {
+            y = involution(1, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += blocks*blockDim.x) {
-        y = involution(1, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -263,19 +214,19 @@ __global__ void shuffle_dk_grid_phaseTwo(TYPE *A, uint64_t n, uint64_t k, uint64
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += blocks*blockDim.x) {
+            y = involution(k, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += blocks*blockDim.x) {
-        y = involution(k, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -291,19 +242,19 @@ __global__ void shuffle_dk_skip_grid_phaseOne(TYPE *A, uint64_t n, uint64_t k, u
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid + s];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid + s];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-s-1; x += blocks*blockDim.x) {
+            y = involution(1, x, m-s-1);
 
-    for (uint64_t x = tid+1; x < m-s-1; x += blocks*blockDim.x) {
-        y = involution(1, x, m-s-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -318,20 +269,20 @@ __global__ void shuffle_dk_skip_grid_phaseTwo(TYPE *A, uint64_t n, uint64_t k, u
     uint32_t blocks = gridDim.x / (n/m);                               //number of blocks per unshuffle on m elements
     int pid = blockIdx.x / blocks;                                     //partition id, i.e., which partition of m elements the current block permutes
     int tid = threadIdx.x + (blockIdx.x - pid*blocks)*blockDim.x;      //thread id within the partition
+    
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid + s];
+        uint64_t y;
+        TYPE temp;
 
-    if (pid == n/m) return;
-  
-    TYPE *a = &A[m*pid + s];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-s-1; x += blocks*blockDim.x) {
+            y = involution(k, x, m-s-1);
 
-    for (uint64_t x = tid+1; x < m-s-1; x += blocks*blockDim.x) {
-        y = involution(k, x, m-s-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -347,35 +298,35 @@ __device__ void unshuffle_blocks(TYPE *A, uint64_t n, uint64_t k, uint64_t m, ui
     int pid = (threadIdx.x/WARPS) / warps;                                          //partition id, i.e., which partition of m elements the current warp permutes
     int tid = ((threadIdx.x/WARPS) - pid*warps)*WARPS + (threadIdx.x % WARPS);      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t j;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t j;
-    TYPE temp;
+        //PHASE 1: rev_d
+        for (uint64_t i = tid; i < m; i += warps*WARPS) {
+            j = rev_base_d(i+1, k, d) - 1;
 
-    //PHASE 1: rev_d
-    for (uint64_t i = tid; i < m; i += warps*WARPS) {
-        j = rev_base_d(i+1, k, d) - 1;
-
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
-    }
-    __syncthreads();
+        __syncthreads();
 
-    //PHASE 2: rev_{d-1}
-    for (uint64_t i = tid; i < m; i += warps*WARPS) {
-        j = rev_base_b(i+1, k, d, d-1) - 1;
-        
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+        //PHASE 2: rev_{d-1}
+        for (uint64_t i = tid; i < m; i += warps*WARPS) {
+            j = rev_base_b(i+1, k, d, d-1) - 1;
+            
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
+        __syncthreads();
     }
-    __syncthreads();
 }
 
 //Performs the the k-way shuffle on each partition of m elements in array A of size n
@@ -389,33 +340,33 @@ __device__ void shuffle_dk_blocks(TYPE *A, uint64_t n, uint64_t k, uint64_t m) {
     int pid = (threadIdx.x/WARPS) / warps;                                          //partition id, i.e., which partition of m elements the current warp permutes
     int tid = ((threadIdx.x/WARPS) - pid*warps)*WARPS + (threadIdx.x % WARPS);      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
+            y = involution(1, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
-        y = involution(1, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
-    __syncthreads();
+        __syncthreads();
 
-    for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
-        y = involution(k, x, m-1);
+        for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
+            y = involution(k, x, m-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
+        __syncthreads();
     }
-    __syncthreads();
 }
 
 //Performs the the k-way unshuffle on each partition of m elements in array A of size n
@@ -429,33 +380,33 @@ __device__ void unshuffle_dk_blocks(TYPE *A, uint64_t n, uint64_t k, uint64_t m)
     int pid = (threadIdx.x/WARPS) / warps;                                          //partition id, i.e., which partition of m elements the current warp permutes
     int tid = ((threadIdx.x/WARPS) - pid*warps)*WARPS + (threadIdx.x % WARPS);      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
+            y = involution(k, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
-        y = involution(k, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
-    __syncthreads();
+        __syncthreads();
 
-    for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
-        y = involution(1, x, m-1);
+        for (uint64_t x = tid+1; x < m-1; x += warps*WARPS) {
+            y = involution(1, x, m-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
+        __syncthreads();
     }
-    __syncthreads();
 }
 
 //Performs the the k-way shuffle on each partition of m elements in array A of size n
@@ -470,33 +421,33 @@ __device__ void shuffle_dk_skip_blocks(TYPE *A, uint64_t n, uint64_t k, uint64_t
     int pid = (threadIdx.x/WARPS) / warps;                                          //partition id, i.e., which partition of m elements the current warp permutes
     int tid = ((threadIdx.x/WARPS) - pid*warps)*WARPS + (threadIdx.x % WARPS);      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid + s];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid + s];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-s-1; x += warps*WARPS) {
+            y = involution(1, x, m-s-1);
 
-    for (uint64_t x = tid+1; x < m-s-1; x += warps*WARPS) {
-        y = involution(1, x, m-s-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
-    __syncthreads();
+        __syncthreads();
 
-    for (uint64_t x = tid+1; x < m-s-1; x += warps*WARPS) {
-        y = involution(k, x, m-s-1);
+        for (uint64_t x = tid+1; x < m-s-1; x += warps*WARPS) {
+            y = involution(k, x, m-s-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
+        __syncthreads();
     }
-    __syncthreads();
 }
 
 //Performs the k-way unshuffle on each partition of m elements in array A of size n
@@ -510,31 +461,31 @@ __device__ void unshuffle_warps(TYPE *A, uint64_t n, uint64_t k, uint64_t m, uin
     int pid = (threadIdx.x % WARPS) / threads;          //partition id, i.e., which partition of m elements the current thread permutes
     int tid = (threadIdx.x % WARPS) - pid*threads;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t j;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t j;
-    TYPE temp;
+        //PHASE 1: rev_d
+        for (uint64_t i = tid; i < m; i += threads) {
+            j = rev_base_d(i+1, k, d) - 1;
 
-    //PHASE 1: rev_d
-    for (uint64_t i = tid; i < m; i += threads) {
-        j = rev_base_d(i+1, k, d) - 1;
-
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
-    }
 
-    //PHASE 2: rev_{d-1}
-    for (uint64_t i = tid; i < m; i += threads) {
-        j = rev_base_b(i+1, k, d, d-1) - 1;
-        
-        if (i < j) {
-            temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
+        //PHASE 2: rev_{d-1}
+        for (uint64_t i = tid; i < m; i += threads) {
+            j = rev_base_b(i+1, k, d, d-1) - 1;
+            
+            if (i < j) {
+                temp = a[i];
+                a[i] = a[j];
+                a[j] = temp;
+            }
         }
     }
 }
@@ -550,29 +501,29 @@ __device__ void shuffle_dk_warps(TYPE *A, uint64_t n, uint64_t k, uint64_t m) {
     int pid = (threadIdx.x % WARPS) / threads;          //partition id, i.e., which partition of m elements the current thread permutes
     int tid = (threadIdx.x % WARPS) - pid*threads;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += threads) {
+            y = involution(1, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += threads) {
-        y = involution(1, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
 
-    for (uint64_t x = tid+1; x < m-1; x += threads) {
-        y = involution(k, x, m-1);
+        for (uint64_t x = tid+1; x < m-1; x += threads) {
+            y = involution(k, x, m-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -588,29 +539,29 @@ __device__ void unshuffle_dk_warps(TYPE *A, uint64_t n, uint64_t k, uint64_t m) 
     int pid = (threadIdx.x % WARPS) / threads;          //partition id, i.e., which partition of m elements the current thread permutes
     int tid = (threadIdx.x % WARPS) - pid*threads;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-1; x += threads) {
+            y = involution(k, x, m-1);
 
-    for (uint64_t x = tid+1; x < m-1; x += threads) {
-        y = involution(k, x, m-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
 
-    for (uint64_t x = tid+1; x < m-1; x += threads) {
-        y = involution(1, x, m-1);
+        for (uint64_t x = tid+1; x < m-1; x += threads) {
+            y = involution(1, x, m-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }
@@ -627,29 +578,29 @@ __device__ void shuffle_dk_skip_warps(TYPE *A, uint64_t n, uint64_t k, uint64_t 
     int pid = (threadIdx.x % WARPS) / threads;          //partition id, i.e., which partition of m elements the current thread permutes
     int tid = (threadIdx.x % WARPS) - pid*threads;      //thread id within the partition
 
-    if (pid == n/m) return;
+    if (pid < n/m) {
+        TYPE *a = &A[m*pid + s];
+        uint64_t y;
+        TYPE temp;
 
-    TYPE *a = &A[m*pid + s];
-    uint64_t y;
-    TYPE temp;
+        for (uint64_t x = tid+1; x < m-s-1; x += threads) {
+            y = involution(1, x, m-s-1);
 
-    for (uint64_t x = tid+1; x < m-s-1; x += threads) {
-        y = involution(1, x, m-s-1);
-
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
-    }
 
-    for (uint64_t x = tid+1; x < m-s-1; x += threads) {
-        y = involution(k, x, m-s-1);
+        for (uint64_t x = tid+1; x < m-s-1; x += threads) {
+            y = involution(k, x, m-s-1);
 
-        if (x < y) {
-            temp = a[x];
-            a[x] = a[y];
-            a[y] = temp;
+            if (x < y) {
+                temp = a[x];
+                a[x] = a[y];
+                a[y] = temp;
+            }
         }
     }
 }

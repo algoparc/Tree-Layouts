@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney, Ben Karsin
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ float timeQueryBtree(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numQ
     cudaMalloc(&dev_queries, numQueries * sizeof(TYPE));
 
     #ifdef VERIFY
-    uint64_t *answers = (uint64_t *)malloc(numQueries * sizeof(uint64_t));    //array to store the answers (i.e., index of the queried item)
+    TYPE *answers = (TYPE *)malloc(numQueries * sizeof(TYPE));    //array to store the answers (i.e., index of the queried item)
     #endif
 
     cudaMemcpy(dev_A, A, n * sizeof(TYPE), cudaMemcpyHostToDevice);                             //transfer A to GPU
@@ -107,7 +107,7 @@ float timeQueryBtree(TYPE *A, TYPE *dev_A, uint64_t n, uint64_t b, uint64_t numQ
     cudaEventElapsedTime(&ms, start, end);
 
     #ifdef VERIFY
-    cudaMemcpy(answers, dev_queries, numQueries * sizeof(uint64_t), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
+    cudaMemcpy(answers, dev_queries, numQueries * sizeof(TYPE), cudaMemcpyDeviceToHost);        //transfer answers back to CPU
     bool correct = true;
     for (uint64_t i = 0; i < numQueries; i++) {
         if (answers[i] == n || A[answers[i]] != queries[i]) {

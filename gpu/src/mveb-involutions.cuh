@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -254,13 +254,14 @@ template<typename TYPE>
 void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
     if (n == 1) return;
 
-    uint32_t leaf_d = (d - 2)/2 + 1;
+    uint32_t root_d = (d - 2)/2 + 1;        //floor((d - 2)/2) + 1
+    uint32_t leaf_d = d - root_d;           //ceil((d - 2)/2.) + 1
+
     float log_leaf = log2((float)leaf_d);
     if (log_leaf - ((int)log_leaf) != 0) {      //Not a perfectly balanced vEB, i.e., d is not a power of 2
         leaf_d = pow(2, ceil(log_leaf));
+        root_d = d - leaf_d;
     }
-
-    uint32_t root_d = d - leaf_d;
 
     uint64_t r = pow(2, root_d) - 1;
     uint64_t l = pow(2, leaf_d) - 1;
@@ -334,8 +335,165 @@ void permutevEB(TYPE *dev_A, uint64_t n, uint32_t d) {
 
     permutevEB_balanced<TYPE>(&dev_A[r], n-r, l, leaf_d);      //permute leaf subtrees
 
-    //TODO: check if root_d is a power of 2
-    permutevEB<TYPE>(dev_A, r, root_d);        //recurse on root subtree
+    float log_root = log2((float)root_d);
+    if (log_root - ((int)log_root) != 0) {      //Not a perfectly balanced vEB, i.e., root_d is not a power of 2
+        permutevEB<TYPE>(dev_A, r, root_d);        //recurse on root subtree
+    }
+    else {      //Perfectly balanced vEB, i.e., root_d is a power of 2
+        permutevEB_balanced<TYPE>(dev_A, r, r, root_d);
+    }
+}
+
+//Permutes the array of size n into the van Emde Boas tree layout
+//Assumes 2^{d-1} - 1 < n < 2^d - 1
+template<typename TYPE>
+void permutevEB_nonperfect(TYPE *dev_A, uint64_t n, uint32_t d) {
+    #ifdef DEBUG
+    printf("\npermutevEB_nonperfect: n = %lu; d = %u\n", n, d);
+    #endif
+
+    if (n == 1) return;
+
+    uint32_t root_d = (d - 2)/2 + 1;        //floor((d - 2)/2) + 1
+    uint32_t leaf_d = d - root_d;           //ceil((d - 2)/2.) + 1
+
+    float log_leaf = log2((float)leaf_d);
+    if (log_leaf - ((int)log_leaf) != 0) {      //Not a perfectly balanced vEB, i.e., d is not a power of 2
+        leaf_d = pow(2, ceil(log_leaf));
+        root_d = d - leaf_d;
+    }
+
+    uint64_t r = pow(2, root_d) - 1;        //number of elements in the root subtree
+    uint64_t l = pow(2, leaf_d) - 1;        //number of elements in the full leaf subtrees
+
+    uint64_t num_full = (n - r) / l;        //number of full leaf subtrees
+    uint64_t inc_n = n - r - num_full*l;    //number of nodes in the incomplete leaf subtree
+
+    #ifdef DEBUG
+    printf("r = %lu; root_d = %u\nl = %lu; leaf_d = %u\n", r, root_d, l, leaf_d);
+    printf("num_full = %lu; inc_n = %lu\n", num_full, inc_n);
+    #endif
+
+    int blocks, threads;
+    if (d > 8) {                    //grid level: n > 2^8 - 1 = 255
+        blocks = BLOCKS;
+        threads = THREADS;
+    }
+    else if (d > 5) {               //block level: n > 2^5 - 1 = 31
+        blocks = 1;
+        threads = (n + 1)/WARPS;
+    }
+    else {                          //warp level: n > 1
+        blocks = 1;
+        threads = 32;
+    }
+
+    //Gather root elements to the front of the array
+    uint64_t temp_n = num_full*(l+1);
+
+    shuffle_dk_phaseTwo<TYPE><<<blocks, threads>>>(dev_A, l+1, temp_n);
+    #ifdef DEBUG
+    cudaError_t cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shuffle_dk_phaseOne<TYPE><<<blocks, threads>>>(dev_A, l+1, temp_n);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shift_right_phaseOne<TYPE><<<blocks, threads>>>(dev_A, temp_n, num_full);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shift_right_phaseTwo<TYPE><<<blocks, threads>>>(dev_A, temp_n, num_full);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shuffle_dk_phaseOne<TYPE><<<blocks, threads>>>(&dev_A[num_full], l, temp_n - num_full);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    shuffle_dk_phaseTwo<TYPE><<<blocks, threads>>>(&dev_A[num_full], l, temp_n - num_full);
+    #ifdef DEBUG
+    cudaerr = cudaDeviceSynchronize();
+    if (cudaerr != cudaSuccess) {
+        printf("shuffle_dk_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+    }
+    #endif
+
+    if (num_full < r) {
+        shift_right_phaseOne<TYPE><<<blocks, threads>>>(&dev_A[num_full], n - num_full, r - num_full);
+        #ifdef DEBUG
+        cudaerr = cudaDeviceSynchronize();
+        if (cudaerr != cudaSuccess) {
+            printf("shift_right_phaseOne failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        #endif
+
+        shift_right_phaseTwo<TYPE><<<blocks, threads>>>(&dev_A[num_full], n - num_full, r - num_full);
+        #ifdef DEBUG
+        cudaerr = cudaDeviceSynchronize();
+        if (cudaerr != cudaSuccess) {
+            printf("shift_right_phaseTwo failed with error %i \"%s\".\n", cudaerr, cudaGetErrorString(cudaerr));
+        }
+        #endif
+    }
+    
+    #ifndef DEBUG
+    cudaDeviceSynchronize();
+    #endif
+
+    //Recurse
+    if (root_d == leaf_d) {
+        permutevEB_balanced<TYPE>(dev_A, n - inc_n, r, root_d);
+    }
+    else {
+        permutevEB_balanced<TYPE>(&dev_A[r], num_full*l, l, leaf_d);      //permute leaf subtrees
+
+        float log_root = log2((float)root_d);
+        if (log_root - ((int)log_root) != 0) {      //Not a perfectly balanced vEB, i.e., root_d is not a power of 2
+            permutevEB<TYPE>(dev_A, r, root_d);        //recurse on root subtree
+        }
+        else {      //Perfectly balanced vEB, i.e., root_d is a power of 2
+            permutevEB_balanced<TYPE>(dev_A, r, r, root_d);
+        }
+    }
+
+    if (inc_n > 0) {
+        uint32_t inc_d = log2(inc_n) + 1;
+
+        //Recurse on incomplete leaf subtree
+        if (inc_n != pow(2, inc_d) - 1) {       //non-perfect incomplete tree
+            permutevEB_nonperfect<TYPE>(&dev_A[n - inc_n], inc_n, inc_d);
+        }
+        else {      //perfect incomplete tree
+            float log_inc = log2((float)inc_d);
+            if (log_inc - ((int)log_inc) != 0) {      //Not a perfectly balanced vEB, i.e., inc_d is not a power of 2
+                permutevEB<TYPE>(&dev_A[n - inc_n], inc_n, inc_d);        //recurse on incomplete subtree
+            }
+            else {      //Perfectly balanced vEB, i.e., root_d is a power of 2
+                permutevEB_balanced<TYPE>(&dev_A[n - inc_n], inc_n, inc_n, inc_d);
+            }
+        }
+    }
 }
 
 //Permutes dev_A into the implicit modified van Emde Boas tree layout 
@@ -346,17 +504,16 @@ double timePermutevEB(TYPE *dev_A, uint64_t n) {
 	struct timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-    uint32_t h = log2((double)n);
-    if (n != pow(2, h+1) - 1) {     //non-full tree
-        printf("non-perfect vEB tree ==> NOT YET IMPLEMENTED!\n");
-        return 0.;
+    uint32_t d = log2((double)n) + 1;
+    if (n != pow(2, d) - 1) {     //non-full tree
+        permutevEB_nonperfect<TYPE>(dev_A, n, d);
     }
     else {    //full tree
-        float log_d = log2((float)(h+1));
+        float log_d = log2((float)d);
 
-        if (log_d - ((int)log_d) == 0) permutevEB_balanced<TYPE>(dev_A, n, n, h+1);     //d is a power of 2 <==> n is a power of power of 2 minus 1
+        if (log_d - ((int)log_d) == 0) permutevEB_balanced<TYPE>(dev_A, n, n, d);     //d is a power of 2 <==> n is a power of power of 2 minus 1
         else {
-            permutevEB<TYPE>(dev_A, n, h+1);
+            permutevEB<TYPE>(dev_A, n, d);
         }
     }
     

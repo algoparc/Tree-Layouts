@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2020 Kyle Berney
+ * Copyright 2018-2021 Kyle Berney
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    int q = atoi(argv[1]);
+    uint64_t q = atol(argv[1]);
     if (q <= 0) {
         fprintf(stderr, "Number of queries must be a positive integer\n");
     }
@@ -32,24 +32,35 @@ int main(int argc, char *argv[]) {
 
     double time[ITERS];
 
-    for (int d = 22; d <= 31; ++d) {
-        int n = pow(2, d) - 1;
-        #ifdef DEBUG
-        printf("n = 2^%d - 1 = %lu\n", d, n);
-        #endif
+    uint64_t n[13] = {
+        4194303,
+        8388607,
+        10000000,
+        16777215,
+        33554431,
+        67108863,
+        100000000,
+        134217727,
+        268435455,
+        536870911,
+        1000000000,
+        1073741823,
+        2147483647
+    };
 
-        int *A = (int *)malloc(n * sizeof(int));
-        int *dev_A;
-        cudaMalloc(&dev_A, n * sizeof(int));
+    for (uint32_t i = 0; i < 13; ++i) {
+        uint32_t *A = (uint32_t *)malloc(n[i] * sizeof(uint32_t));
+        uint32_t *dev_A;
+        cudaMalloc(&dev_A, n[i] * sizeof(uint32_t));
 
-        initSortedList<int>(A, n);
-        cudaMemcpy(dev_A, A, n * sizeof(int), cudaMemcpyHostToDevice);
+        initSortedList<uint32_t>(A, n[i]);
+        cudaMemcpy(dev_A, A, n[i] * sizeof(uint32_t), cudaMemcpyHostToDevice);
         
         //Querying
-        for (int i = 0; i < ITERS; ++i) {
-            time[i] = timeQuery<int>(A, dev_A, n, q);
+        for (uint32_t j = 0; j < ITERS; ++j) {
+            time[j] = timeQuery<uint32_t>(A, dev_A, n[i], q);
         }
-        printQueryTimings(n, q, time); 
+        printQueryTimings(n[i], q, time); 
 
         free(A);
         cudaFree(dev_A);
