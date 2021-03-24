@@ -52,9 +52,9 @@ The parameters of the above functions are defined as follows:
 * `n` is the number of elements in the array
 * `p` is the number of CPU threads to use
 * `d` is the number of levels in the corresponding search tree layout
-* `table` is a pointer to the start of the data structure used to query the van Emde Boas tree layout and Modified van Emde Boas tree layout (residing in CPU RAM space)
-* `dev_table` is a pointer to the start of the data structure used to query the van Emde Boas tree layout and Modified van Emde Boas tree layout (residing in GPU RAM space)
-* `num_tables` is the number of `vEB_table` data structures are needed to query a non-perfect vEB or mvEB tree layout
+* `table` is a pointer to the start of the data structure used to query the vEB tree layout (residing in CPU RAM space)
+* `dev_table` is a pointer to the start of the data structure used to query the mvEB tree layout (residing in GPU RAM space)
+* `num_tables` is the number of `vEB_table` data structures needed to query a non-perfect vEB or mvEB tree layout
 * `tables` is a pointer to the start of an array of size `num_tables` (residing in CPU RAM space), where each array element is a pointer to a `vEB_table` data structure
 * `dev_tables` is a pointer to the start of the data structure where `num_tables` `vEB_table` data structures are sequentially stored (residing in GPU RAM space)
 * `idx` is a pointer to the start of an array of size `num_tables` (residing in CPU RAM space), where each array element is an integer corresponding to the index where the last full bottom tree of the i-th vEB recursive division ends
